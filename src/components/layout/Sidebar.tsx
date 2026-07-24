@@ -14,18 +14,25 @@ export default function Sidebar() {
         </Link>
 
         <Link
-          href="/products"
-          className="block w-full rounded p-2 hover:bg-pink-700"
-        >
-          📦 Produk
-        </Link>
+  href="/products"
+  className="block w-full rounded p-2 hover:bg-pink-700"
+>
+  📦 Produk
+</Link>
 
-        <Link
-          href="/inventory"
-          className="block w-full rounded p-2 hover:bg-pink-700"
-        >
-          📋 Stok
-        </Link>
+<Link
+  href="/categories"
+  className="block w-full rounded p-2 hover:bg-pink-700"
+>
+  📁 Kategori
+</Link>
+
+<Link
+  href="/inventory"
+  className="block w-full rounded p-2 hover:bg-pink-700"
+>
+  📋 Stok
+</Link>
 
         <Link
           href="/sales"
