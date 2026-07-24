@@ -36,7 +36,28 @@ export default function ProductsPage() {
 
   }
 
+  async function hapusProduk(id: number) {
 
+    const konfirmasi = confirm("Yakin ingin menghapus produk ini?");
+
+    if (!konfirmasi) return;
+
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.log(error);
+      alert("Gagal menghapus produk.");
+      return;
+    }
+
+    alert("Produk berhasil dihapus.");
+
+    ambilProduk();
+
+  }
 
   return (
 
@@ -198,27 +219,30 @@ export default function ProductsPage() {
 
 
 
-                      <td className="p-4 text-center">
+                     <td className="p-4 text-center">
 
+  <div className="flex justify-center gap-2">
 
-                        <button
+    <button
+      onClick={() => {
+        setSelectedProduct(produk);
+        setOpenModal(true);
+      }}
+      className="rounded-lg bg-pink-100 px-3 py-1 text-sm text-pink-700 hover:bg-pink-200"
+    >
+      ✏️ Edit
+    </button>
 
-                          onClick={() => {
-                            setSelectedProduct(produk);
-                            setOpenModal(true);
-                          }}
+    <button
+      onClick={() => hapusProduk(produk.id)}
+      className="rounded-lg bg-red-100 px-3 py-1 text-sm text-red-700 hover:bg-red-200"
+    >
+      🗑️ Hapus
+    </button>
 
-                          className="rounded-lg bg-pink-100 px-3 py-1 text-sm text-pink-700 hover:bg-pink-200"
+  </div>
 
-                        >
-
-                          Edit
-
-                        </button>
-
-
-                      </td>
-
+</td>
 
                     </tr>
 
