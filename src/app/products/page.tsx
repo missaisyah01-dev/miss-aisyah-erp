@@ -12,6 +12,7 @@ export default function ProductsPage() {
   const [openModal, setOpenModal] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [search, setSearch] = useState("");
 
 
   useEffect(() => {
@@ -89,6 +90,16 @@ export default function ProductsPage() {
                 Kelola semua produk MISS AISYAH
               </p>
 
+              <div className="mt-4">
+  <input
+    type="text"
+    placeholder="🔍 Cari produk..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="w-80 rounded-lg border border-gray-300 px-4 py-2 focus:border-pink-500 focus:outline-none"
+  />
+</div>
+
             </div>
 
 
@@ -115,7 +126,11 @@ export default function ProductsPage() {
 
 
           <ProductTable
-  products={products}
+  products={products.filter((produk) =>
+  produk.nama.toLowerCase().includes(search.toLowerCase()) ||
+  produk.kode.toLowerCase().includes(search.toLowerCase()) ||
+  produk.kategori.toLowerCase().includes(search.toLowerCase())
+)}
   onEdit={(produk) => {
     setSelectedProduct(produk);
     setOpenModal(true);
