@@ -33,6 +33,28 @@ export default function CategoriesPage() {
     setCategories(data || []);
   }
 
+  async function hapusKategori(id: number) {
+
+    const konfirmasi = confirm("Yakin ingin menghapus kategori ini?");
+
+    if (!konfirmasi) return;
+
+    const { error } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.log(error);
+      alert("Gagal menghapus kategori.");
+      return;
+    }
+
+    alert("Kategori berhasil dihapus.");
+
+    ambilKategori();
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-100">
 
@@ -76,9 +98,7 @@ export default function CategoriesPage() {
               setSelectedCategory(category);
               setOpenModal(true);
             }}
-            onDelete={(id) => {
-              console.log(id);
-            }}
+            onDelete={hapusKategori}
           />
 
         </main>
