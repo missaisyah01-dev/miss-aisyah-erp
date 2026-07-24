@@ -1,4 +1,43 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
 export default function StockTable() {
+
+  const [data, setData] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+
+
+  const fetchData = async () => {
+
+    const { data, error } = await supabase
+      .from("stock_movements")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
+
+
+    console.log("DATA STOCK:", data);
+    console.log("ERROR STOCK:", error);
+
+
+    if (error) {
+      return;
+    }
+
+
+    setData(data || []);
+
+  };
+
+
 
   return (
 
@@ -10,28 +49,92 @@ export default function StockTable() {
 
           <tr>
 
-            <th className="p-4 text-left">Produk</th>
-            <th className="p-4 text-center">Tipe</th>
-            <th className="p-4 text-center">Jumlah</th>
-            <th className="p-4 text-left">Keterangan</th>
-            <th className="p-4 text-left">Tanggal</th>
+            <th className="p-4 text-left">
+              Product ID
+            </th>
+
+            <th className="p-4 text-center">
+              Tipe
+            </th>
+
+            <th className="p-4 text-center">
+              Jumlah
+            </th>
+
+            <th className="p-4 text-left">
+              Keterangan
+            </th>
+
+            <th className="p-4 text-left">
+              Tanggal
+            </th>
 
           </tr>
 
         </thead>
 
+
+
         <tbody>
 
-          <tr>
 
-            <td
-              colSpan={5}
-              className="p-8 text-center text-gray-500"
-            >
-              Belum ada riwayat stok.
-            </td>
+          {data.length === 0 ? (
 
-          </tr>
+            <tr>
+
+              <td
+                colSpan={5}
+                className="p-8 text-center text-gray-500"
+              >
+                Belum ada riwayat stok.
+              </td>
+
+            </tr>
+
+
+          ) : (
+
+
+            data.map((item) => (
+
+              <tr
+                key={item.id}
+                className="border-t"
+              >
+
+                <td className="p-4">
+                  {item.product_id}
+                </td>
+
+
+                <td className="p-4 text-center">
+                  {item.tipe}
+                </td>
+
+
+                <td className="p-4 text-center">
+                  {item.jumlah}
+                </td>
+
+
+                <td className="p-4">
+                  {item.keterangan || "-"}
+                </td>
+
+
+                <td className="p-4">
+                  {new Date(
+                    item.created_at
+                  ).toLocaleString("id-ID")}
+                </td>
+
+
+              </tr>
+
+            ))
+
+          )}
+
 
         </tbody>
 
