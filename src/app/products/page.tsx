@@ -12,7 +12,9 @@ export default function ProductsPage() {
   const [openModal, setOpenModal] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
   const [search, setSearch] = useState("");
+  const [filterKategori, setFilterKategori] = useState("");
 
 
   useEffect(() => {
@@ -90,7 +92,8 @@ export default function ProductsPage() {
                 Kelola semua produk MISS AISYAH
               </p>
 
-              <div className="mt-4">
+             <div className="mt-4 flex gap-3">
+
   <input
     type="text"
     placeholder="🔍 Cari produk..."
@@ -98,8 +101,20 @@ export default function ProductsPage() {
     onChange={(e) => setSearch(e.target.value)}
     className="w-80 rounded-lg border border-gray-300 px-4 py-2 focus:border-pink-500 focus:outline-none"
   />
-</div>
 
+  <select
+    value={filterKategori}
+    onChange={(e) => setFilterKategori(e.target.value)}
+    className="rounded-lg border border-gray-300 px-4 py-2"
+  >
+    <option value="Semua">Semua</option>
+    <option value="Gamis">Gamis</option>
+    <option value="Hijab">Hijab</option>
+    <option value="Mukena">Mukena</option>
+    <option value="Dress">Dress</option>
+  </select>
+
+</div>
             </div>
 
 
@@ -125,12 +140,19 @@ export default function ProductsPage() {
 
 
 
-          <ProductTable
-  products={products.filter((produk) =>
-  produk.nama.toLowerCase().includes(search.toLowerCase()) ||
-  produk.kode.toLowerCase().includes(search.toLowerCase()) ||
-  produk.kategori.toLowerCase().includes(search.toLowerCase())
-)}
+         <ProductTable
+  products={products.filter((produk) => {
+    const cocokSearch =
+      produk.nama.toLowerCase().includes(search.toLowerCase()) ||
+      produk.kode.toLowerCase().includes(search.toLowerCase()) ||
+      produk.kategori.toLowerCase().includes(search.toLowerCase());
+
+    const cocokKategori =
+      filterKategori.toLowerCase() === "semua" ||
+      produk.kategori.toLowerCase() === filterKategori.toLowerCase();
+
+    return cocokSearch && cocokKategori;
+  })}
   onEdit={(produk) => {
     setSelectedProduct(produk);
     setOpenModal(true);
