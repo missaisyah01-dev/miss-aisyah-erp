@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Props = {
@@ -8,6 +9,8 @@ type Props = {
 };
 
 export default function StockModal({ onClose }: Props) {
+
+  const router = useRouter();
 
   const [products, setProducts] = useState<any[]>([]);
   const [productId, setProductId] = useState("");
@@ -119,6 +122,8 @@ export default function StockModal({ onClose }: Props) {
   alert("Stok berhasil diperbarui");
 
   onClose();
+
+  window.location.reload();
 
 };
 
