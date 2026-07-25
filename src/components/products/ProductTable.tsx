@@ -11,12 +11,14 @@ type ProductTableProps = {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (id: number) => void;
+  onVariants: (product: Product) => void;
 };
 
 export default function ProductTable({
   products,
   onEdit,
   onDelete,
+  onVariants,
 }: ProductTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
@@ -62,6 +64,13 @@ export default function ProductTable({
 
                 <td className="p-4 text-center">
                   <div className="flex justify-center gap-2">
+                    <button
+                      onClick={() => onVariants(produk)}
+                      className="rounded-lg bg-violet-100 px-3 py-1 text-sm text-violet-700 hover:bg-violet-200"
+                    >
+                      Varian
+                    </button>
+
                     <button
                       onClick={() => onEdit(produk)}
                       className="rounded-lg bg-pink-100 px-3 py-1 text-sm text-pink-700 hover:bg-pink-200"
