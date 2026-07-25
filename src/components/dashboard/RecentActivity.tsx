@@ -13,9 +13,9 @@ export default function RecentActivity({ activities }: Props) {
 
   return (
 
-    <div className="rounded-xl bg-white p-6 shadow">
+    <div className="rounded-xl bg-white p-6 text-gray-900 shadow">
 
-      <h2 className="mb-4 text-xl font-bold">
+      <h2 className="mb-4 text-xl font-bold text-gray-900">
         🕒 Aktivitas Terbaru
       </h2>
 
@@ -38,7 +38,7 @@ export default function RecentActivity({ activities }: Props) {
 
               <div>
 
-                <p className="font-semibold">
+                <p className="font-semibold text-gray-900">
                   {item.product}
                 </p>
 

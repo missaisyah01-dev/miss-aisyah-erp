@@ -22,9 +22,9 @@ export default function StockChart({ data }: Props) {
 
   return (
 
-    <div className="mt-8 rounded-xl bg-white p-6 shadow">
+    <div className="mt-8 rounded-xl bg-white p-6 text-gray-900 shadow">
 
-      <h2 className="mb-6 text-xl font-bold">
+      <h2 className="mb-6 text-xl font-bold text-gray-900">
         Grafik Pergerakan Stok
       </h2>
 

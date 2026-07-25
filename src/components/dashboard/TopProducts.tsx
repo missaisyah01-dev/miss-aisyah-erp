@@ -9,8 +9,8 @@ type Props = {
 
 export default function TopProducts({ products }: Props) {
   return (
-    <div className="rounded-xl bg-white p-6 shadow">
-      <h2 className="mb-4 text-xl font-bold">
+    <div className="rounded-xl bg-white p-6 text-gray-900 shadow">
+      <h2 className="mb-4 text-xl font-bold text-gray-900">
         🔥 Top Produk (Stok Terbanyak)
       </h2>
 
@@ -23,10 +23,10 @@ export default function TopProducts({ products }: Props) {
           {products.map((item, index) => (
             <div
               key={index}
-              className="flex items-center justify-between rounded-lg border p-3"
+              className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
             >
               <div>
-                <p className="font-semibold">
+                <p className="font-semibold text-gray-900">
                   {item.nama}
                 </p>
 

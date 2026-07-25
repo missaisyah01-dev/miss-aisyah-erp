@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Product = {
@@ -24,24 +24,11 @@ export default function ProductModal({
   product,
 }: ProductModalProps) {
 
-  const [kode, setKode] = useState("");
-  const [nama, setNama] = useState("");
-  const [kategori, setKategori] = useState("");
-  const [harga, setHarga] = useState("");
-  const [stok, setStok] = useState("");
-
-
-  useEffect(() => {
-
-    if (product) {
-      setKode(product.kode);
-      setNama(product.nama);
-      setKategori(product.kategori);
-      setHarga(String(product.harga));
-      setStok(String(product.stok));
-    }
-
-  }, [product]);
+  const [kode, setKode] = useState(product?.kode ?? "");
+  const [nama, setNama] = useState(product?.nama ?? "");
+  const [kategori, setKategori] = useState(product?.kategori ?? "");
+  const [harga, setHarga] = useState(product ? String(product.harga) : "");
+  const [stok, setStok] = useState(product ? String(product.stok) : "");
 
 
   async function simpanProduk() {
@@ -110,9 +97,9 @@ export default function ProductModal({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40">
 
-      <div className="w-full max-w-lg rounded-xl bg-white p-6">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 text-gray-900">
 
-        <h2 className="mb-6 text-2xl font-bold">
+        <h2 className="mb-6 text-2xl font-bold text-gray-900">
           {product?.id ? "Edit Produk" : "Tambah Produk"}
         </h2>
 

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MISS AISYAH",
-  description: "Sistem operasional bisnis F&B MISS AISYAH",
+  description: "Sistem operasional fashion miss aisyah",
 };
 
 export default function RootLayout({
