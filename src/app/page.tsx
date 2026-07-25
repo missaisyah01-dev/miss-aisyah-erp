@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import DashboardCards from "@/components/dashboard/DashboardCards";
+import StockChart from "@/components/dashboard/StockChart";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -15,6 +17,16 @@ export default function Home() {
   const [stokMenipis, setStokMenipis] = useState(0);
   const [stokHabis, setStokHabis] = useState(0);
   const [nilaiPersediaan, setNilaiPersediaan] = useState(0);
+
+  const [chartData, setChartData] = useState([
+    { name: "Sen", masuk: 0, keluar: 0 },
+    { name: "Sel", masuk: 0, keluar: 0 },
+    { name: "Rab", masuk: 0, keluar: 0 },
+    { name: "Kam", masuk: 0, keluar: 0 },
+    { name: "Jum", masuk: 0, keluar: 0 },
+    { name: "Sab", masuk: 0, keluar: 0 },
+    { name: "Min", masuk: 0, keluar: 0 },
+  ]);
 
   useEffect(() => {
     fetchDashboard();
@@ -68,7 +80,7 @@ export default function Home() {
     // Ambil riwayat stok
     const { data: movements } = await supabase
       .from("stock_movements")
-      .select("tipe,jumlah");
+      .select("tipe,jumlah,created_at");
 
     if (movements) {
 
@@ -89,6 +101,40 @@ export default function Home() {
       setStokMasuk(masuk);
       setStokKeluar(keluar);
 
+      const hari = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+const chart = [
+  { name: "Sen", masuk: 0, keluar: 0 },
+  { name: "Sel", masuk: 0, keluar: 0 },
+  { name: "Rab", masuk: 0, keluar: 0 },
+  { name: "Kam", masuk: 0, keluar: 0 },
+  { name: "Jum", masuk: 0, keluar: 0 },
+  { name: "Sab", masuk: 0, keluar: 0 },
+  { name: "Min", masuk: 0, keluar: 0 },
+];
+
+movements.forEach((item: any) => {
+
+  const namaHari = hari[new Date(item.created_at).getDay()];
+
+  const index = chart.findIndex(
+    (x) => x.name === namaHari
+  );
+
+  if (index === -1) return;
+
+  if (item.tipe === "MASUK") {
+    chart[index].masuk += Number(item.jumlah);
+  }
+
+  if (item.tipe === "KELUAR") {
+    chart[index].keluar += Number(item.jumlah);
+  }
+
+});
+
+setChartData(chart);
+
     }
 
   };
@@ -105,46 +151,17 @@ export default function Home() {
 
         <main className="p-8">
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <DashboardCards
+            totalProduk={totalProduk}
+            totalStok={totalStok}
+            stokMasuk={stokMasuk}
+            stokKeluar={stokKeluar}
+            stokMenipis={stokMenipis}
+            stokHabis={stokHabis}
+            nilaiPersediaan={nilaiPersediaan}
+          />
 
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">📦 Total Produk</h3>
-              <p className="mt-2 text-3xl font-bold">{totalProduk}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">📦 Total Stok</h3>
-              <p className="mt-2 text-3xl font-bold">{totalStok}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">📥 Total Stok Masuk</h3>
-              <p className="mt-2 text-3xl font-bold">{stokMasuk}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">📤 Total Stok Keluar</h3>
-              <p className="mt-2 text-3xl font-bold">{stokKeluar}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">⚠️ Stok Menipis</h3>
-              <p className="mt-2 text-3xl font-bold">{stokMenipis}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">❌ Stok Habis</h3>
-              <p className="mt-2 text-3xl font-bold">{stokHabis}</p>
-            </div>
-
-            <div className="rounded-xl bg-white p-5 shadow">
-              <h3 className="text-gray-500">💰 Nilai Persediaan</h3>
-              <p className="mt-2 text-3xl font-bold">
-                Rp {nilaiPersediaan.toLocaleString("id-ID")}
-              </p>
-            </div>
-
-          </div>
+          <StockChart data={chartData} />
 
           <div className="mt-8 rounded-xl bg-white p-6 shadow">
 
