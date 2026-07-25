@@ -11,7 +11,10 @@ export default function Home() {
   const [totalProduk, setTotalProduk] = useState(0);
   const [totalStok, setTotalStok] = useState(0);
   const [stokMasuk, setStokMasuk] = useState(0);
+  const [stokKeluar, setStokKeluar] = useState(0);
   const [stokMenipis, setStokMenipis] = useState(0);
+  const [stokHabis, setStokHabis] = useState(0);
+  const [nilaiPersediaan, setNilaiPersediaan] = useState(0);
 
   useEffect(() => {
     fetchDashboard();
@@ -22,14 +25,17 @@ export default function Home() {
     // Total Produk
     const { count: produk } = await supabase
       .from("products")
-      .select("*", { count: "exact", head: true });
+      .select("*", {
+        count: "exact",
+        head: true,
+      });
 
     setTotalProduk(produk || 0);
 
     // Ambil semua produk
     const { data: products } = await supabase
       .from("products")
-      .select("stok");
+      .select("stok,harga");
 
     if (products) {
 
@@ -42,12 +48,24 @@ export default function Home() {
         (item: any) => Number(item.stok) <= 5
       ).length;
 
+      const habis = products.filter(
+        (item: any) => Number(item.stok) === 0
+      ).length;
+
+      const nilai = products.reduce(
+        (sum: number, item: any) =>
+          sum + (Number(item.stok) * Number(item.harga)),
+        0
+      );
+
       setTotalStok(total);
       setStokMenipis(menipis);
+      setStokHabis(habis);
+      setNilaiPersediaan(nilai);
 
     }
 
-    // Total stok masuk
+    // Ambil riwayat stok
     const { data: movements } = await supabase
       .from("stock_movements")
       .select("tipe,jumlah");
@@ -61,7 +79,15 @@ export default function Home() {
           0
         );
 
+      const keluar = movements
+        .filter((item: any) => item.tipe === "KELUAR")
+        .reduce(
+          (sum: number, item: any) => sum + Number(item.jumlah),
+          0
+        );
+
       setStokMasuk(masuk);
+      setStokKeluar(keluar);
 
     }
 
@@ -97,8 +123,25 @@ export default function Home() {
             </div>
 
             <div className="rounded-xl bg-white p-5 shadow">
+              <h3 className="text-gray-500">📤 Total Stok Keluar</h3>
+              <p className="mt-2 text-3xl font-bold">{stokKeluar}</p>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow">
               <h3 className="text-gray-500">⚠️ Stok Menipis</h3>
               <p className="mt-2 text-3xl font-bold">{stokMenipis}</p>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow">
+              <h3 className="text-gray-500">❌ Stok Habis</h3>
+              <p className="mt-2 text-3xl font-bold">{stokHabis}</p>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow">
+              <h3 className="text-gray-500">💰 Nilai Persediaan</h3>
+              <p className="mt-2 text-3xl font-bold">
+                Rp {nilaiPersediaan.toLocaleString("id-ID")}
+              </p>
             </div>
 
           </div>
