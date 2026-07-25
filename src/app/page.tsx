@@ -6,6 +6,8 @@ import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import DashboardCards from "@/components/dashboard/DashboardCards";
 import StockChart from "@/components/dashboard/StockChart";
+import TopProducts from "@/components/dashboard/TopProducts";
+import RecentActivity from "@/components/dashboard/RecentActivity";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -17,6 +19,10 @@ export default function Home() {
   const [stokMenipis, setStokMenipis] = useState(0);
   const [stokHabis, setStokHabis] = useState(0);
   const [nilaiPersediaan, setNilaiPersediaan] = useState(0);
+  const [topProducts, setTopProducts] = useState<
+  { nama: string; stok: number }[]
+>([]);
+  const [activities, setActivities] = useState<any[]>([]);
 
   const [chartData, setChartData] = useState([
     { name: "Sen", masuk: 0, keluar: 0 },
@@ -75,7 +81,43 @@ export default function Home() {
       setStokHabis(habis);
       setNilaiPersediaan(nilai);
 
-    }
+      const { data: top } = await supabase
+  .from("products")
+  .select("nama,stok")
+  .order("stok", { ascending: false })
+  .limit(5);
+
+setTopProducts(top || []);
+
+const { data: activity } = await supabase
+  .from("stock_movements")
+  .select(`
+    tipe,
+    jumlah,
+    created_at,
+    products (
+      nama
+    )
+  `)
+  .order("created_at", {
+    ascending: false,
+  })
+  .limit(5);
+
+if (activity) {
+
+  const formatted = activity.map((item: any) => ({
+    product: item.products?.nama || "-",
+    tipe: item.tipe,
+    jumlah: item.jumlah,
+    created_at: item.created_at,
+  }));
+
+  setActivities(formatted);
+
+}
+
+  }
 
     // Ambil riwayat stok
     const { data: movements } = await supabase
@@ -163,6 +205,17 @@ setChartData(chart);
 
           <StockChart data={chartData} />
 
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+  <TopProducts
+    products={topProducts}
+  />
+
+  <RecentActivity
+    activities={activities}
+  />
+
+</div>
           <div className="mt-8 rounded-xl bg-white p-6 shadow">
 
             <h2 className="text-xl font-bold">
