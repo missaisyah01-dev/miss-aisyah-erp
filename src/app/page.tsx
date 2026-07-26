@@ -187,11 +187,11 @@ setChartData(chart);
 
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
 
         <Header />
 
-        <main className="p-8">
+        <main className="p-5 pb-24 md:p-8">
 
           <DashboardCards
             totalProduk={totalProduk}
@@ -205,7 +205,7 @@ setChartData(chart);
 
           <StockChart data={chartData} />
 
-          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
 
   <TopProducts
     products={topProducts}

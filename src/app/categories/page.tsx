@@ -60,11 +60,11 @@ export default function CategoriesPage() {
 
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
 
         <Header />
 
-        <main className="p-8">
+        <main className="p-5 pb-24 md:p-8">
 
           <div className="mb-6 flex items-center justify-between">
 

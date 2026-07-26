@@ -1,244 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Props = {
-  onClose: () => void;
-};
+type Product = { id: number; nama: string };
+type Variant = { id: number; sku: string; color: string; size: string; stock: number };
 
-export default function StockModal({ onClose }: Props) {
-
-  const router = useRouter();
-
-  const [products, setProducts] = useState<any[]>([]);
-  const [productId, setProductId] = useState("");
-
-  const [tipe, setTipe] = useState("MASUK");
-  const [jumlah, setJumlah] = useState("");
-  const [keterangan, setKeterangan] = useState("");
-
-
-  useEffect(() => {
-
-    const fetchProducts = async () => {
-
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, nama");
-
-      if (error) {
-        console.log(error);
-        return;
-      }
-
-      setProducts(data || []);
-
-    };
-
-    fetchProducts();
-
-  }, []);
-
-
-
- const handleSave = async () => {
-
-  if (!productId || !jumlah) {
-    alert("Produk dan jumlah wajib diisi");
-    return;
+export default function StockModal({ onClose }: { onClose: () => void }) {
+  const [products, setProducts] = useState<Product[]>([]); const [variants, setVariants] = useState<Variant[]>([]);
+  const [productId, setProductId] = useState(""); const [variantId, setVariantId] = useState(""); const [type, setType] = useState("MASUK"); const [quantity, setQuantity] = useState(""); const [notes, setNotes] = useState(""); const [saving, setSaving] = useState(false);
+  async function loadProducts() { const { data, error } = await supabase.from("products").select("id, nama").order("nama"); if (error) alert(error.message); else setProducts((data ?? []) as Product[]); }
+  async function loadVariants(id: string) { setVariants([]); setVariantId(""); if (!id) return; const { data, error } = await supabase.from("product_variants").select("id, sku, color, size, stock").eq("product_id", id).order("color"); if (error) alert(error.message); else setVariants((data ?? []) as Variant[]); }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadProducts(); }, []);
+  async function save() {
+    if (!productId || !variantId || !quantity || Number(quantity) <= 0) return alert("Produk, varian, dan jumlah wajib diisi.");
+    const selected = variants.find((variant) => variant.id === Number(variantId)); if (!selected) return;
+    const newStock = type === "MASUK" || type === "RETUR" ? selected.stock + Number(quantity) : selected.stock - Number(quantity);
+    if (newStock < 0) return alert("Stok varian tidak mencukupi.");
+    setSaving(true);
+    const { error: movementError } = await supabase.from("stock_movements").insert({ product_id: Number(productId), product_variant_id: Number(variantId), tipe: type, jumlah: Number(quantity), keterangan: notes });
+    if (movementError) { setSaving(false); return alert(movementError.message); }
+    const { error: updateError } = await supabase.from("product_variants").update({ stock: newStock }).eq("id", variantId);
+    setSaving(false); if (updateError) return alert(updateError.message);
+    alert("Stok varian berhasil diperbarui."); onClose(); window.location.reload();
   }
-
-
-  // ambil stok sekarang
-  const { data: product, error: productError } = await supabase
-    .from("products")
-    .select("stok")
-    .eq("id", productId)
-    .single();
-
-
-  if (productError) {
-    alert(productError.message);
-    return;
-  }
-
-
-  let stokBaru = product.stok;
-
-
-  if (tipe === "MASUK" || tipe === "RETUR") {
-    stokBaru = stokBaru + Number(jumlah);
-  }
-
-
-  if (tipe === "KELUAR") {
-    stokBaru = stokBaru - Number(jumlah);
-  }
-
-
-  if (stokBaru < 0) {
-    alert("Stok tidak mencukupi");
-    return;
-  }
-
-
-
-  // simpan riwayat
-  const { error: movementError } = await supabase
-    .from("stock_movements")
-    .insert({
-      product_id: Number(productId),
-      tipe: tipe,
-      jumlah: Number(jumlah),
-      keterangan: keterangan,
-    });
-
-
-  if (movementError) {
-    alert(movementError.message);
-    return;
-  }
-
-
-
-  // update stok produk
-  const { error: updateError } = await supabase
-    .from("products")
-    .update({
-      stok: stokBaru
-    })
-    .eq("id", productId);
-
-
-
-  if (updateError) {
-    alert(updateError.message);
-    return;
-  }
-
-
-  alert("Stok berhasil diperbarui");
-
-  onClose();
-
-  window.location.reload();
-
-};
-
-
-  return (
-
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-
-
-        <h2 className="mb-6 text-2xl font-bold text-gray-900">
-          Pergerakan Stok
-        </h2>
-
-
-
-        <select
-          value={productId}
-          onChange={(e) => setProductId(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-black"
-        >
-
-          <option value="">
-            Pilih Produk
-          </option>
-
-
-          {products.map((product) => (
-
-            <option
-              key={product.id}
-              value={product.id}
-            >
-              {product.nama}
-            </option>
-
-          ))}
-
-        </select>
-
-
-
-
-        <select
-          value={tipe}
-          onChange={(e) => setTipe(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-black"
-        >
-
-          <option value="MASUK">
-            📥 Stok Masuk
-          </option>
-
-          <option value="KELUAR">
-            📤 Stok Keluar
-          </option>
-
-          <option value="RETUR">
-            🔄 Retur
-          </option>
-
-        </select>
-
-
-
-
-        <input
-          type="number"
-          placeholder="Jumlah"
-          value={jumlah}
-          onChange={(e) => setJumlah(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-black"
-        />
-
-
-
-
-        <textarea
-          placeholder="Keterangan"
-          value={keterangan}
-          onChange={(e) => setKeterangan(e.target.value)}
-          className="mb-6 w-full rounded-lg border border-gray-300 px-4 py-2 text-black"
-        />
-
-
-
-
-        <div className="flex justify-end gap-3">
-
-
-          <button
-            onClick={onClose}
-            className="rounded-lg bg-gray-200 px-4 py-2"
-          >
-            Batal
-          </button>
-
-
-
-          <button
-            onClick={handleSave}
-            className="rounded-lg bg-pink-600 px-4 py-2 text-white hover:bg-pink-700"
-          >
-            Simpan
-          </button>
-
-
-        </div>
-
-
-      </div>
-
-    </div>
-
-  );
-
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-6 text-gray-900 shadow-xl"><h2 className="mb-6 text-2xl font-bold">Pergerakan Stok Varian</h2><select value={productId} onChange={(event) => { setProductId(event.target.value); void loadVariants(event.target.value); }} className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2"><option value="">Pilih Produk</option>{products.map((product) => <option key={product.id} value={product.id}>{product.nama}</option>)}</select><select disabled={!productId} value={variantId} onChange={(event) => setVariantId(event.target.value)} className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 disabled:bg-gray-100"><option value="">Pilih Warna / Ukuran</option>{variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.color} / {variant.size} — {variant.sku} (stok {variant.stock})</option>)}</select><select value={type} onChange={(event) => setType(event.target.value)} className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2"><option value="MASUK">Stok Masuk</option><option value="KELUAR">Stok Keluar</option><option value="RETUR">Retur</option></select><input type="number" min="1" placeholder="Jumlah" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2" /><textarea placeholder="Keterangan" value={notes} onChange={(event) => setNotes(event.target.value)} className="mb-6 w-full rounded-lg border border-gray-300 px-4 py-2" /><div className="flex justify-end gap-3"><button onClick={onClose} className="rounded-lg bg-gray-200 px-4 py-2">Batal</button><button disabled={saving} onClick={() => void save()} className="rounded-lg bg-pink-600 px-4 py-2 text-white hover:bg-pink-700 disabled:bg-pink-300">{saving ? "Menyimpan…" : "Simpan"}</button></div></div></div>;
 }

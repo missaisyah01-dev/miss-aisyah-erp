@@ -5,40 +5,27 @@ import { supabase } from "@/lib/supabase";
 
 type Product = { id: number; kode: string; nama: string; harga: number };
 type Variant = { id: number; sku: string; color: string; size: string; price: number; stock: number };
+type Form = { sku: string; color: string; size: string; price: string; stock: string };
+const emptyForm = (product: Product): Form => ({ sku: `${product.kode}-`, color: "", size: "", price: String(product.harga), stock: "0" });
 
 export default function VariantModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [sku, setSku] = useState(`${product.kode}-`);
-  const [color, setColor] = useState("");
-  const [size, setSize] = useState("");
-  const [price, setPrice] = useState(String(product.harga));
-  const [stock, setStock] = useState("0");
-  const [saving, setSaving] = useState(false);
-
-  async function loadVariants() {
-    const { data, error } = await supabase.from("product_variants").select("id, sku, color, size, price, stock").eq("product_id", product.id).order("created_at");
-    if (error) alert(`Gagal memuat varian: ${error.message}`); else setVariants((data ?? []) as Variant[]);
-  }
-
+  const [variants, setVariants] = useState<Variant[]>([]); const [form, setForm] = useState<Form>(emptyForm(product)); const [editingId, setEditingId] = useState<number | null>(null); const [saving, setSaving] = useState(false);
+  async function loadVariants() { const { data, error } = await supabase.from("product_variants").select("id, sku, color, size, price, stock").eq("product_id", product.id).order("created_at"); if (error) alert(`Gagal memuat varian: ${error.message}`); else setVariants((data ?? []) as Variant[]); }
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void loadVariants(); }, []);
-
-  async function addVariant() {
-    if (!sku.trim() || !color.trim() || !size.trim()) return alert("SKU, warna, dan ukuran wajib diisi.");
-    setSaving(true);
-    const { error } = await supabase.from("product_variants").insert({ product_id: product.id, sku: sku.trim(), color: color.trim(), size: size.trim(), price: Number(price), stock: Number(stock) });
-    setSaving(false);
-    if (error) return alert(`Gagal menambah varian: ${error.message}`);
-    setSku(`${product.kode}-`); setColor(""); setSize(""); setPrice(String(product.harga)); setStock("0");
-    void loadVariants();
+  function update(field: keyof Form, value: string) { setForm((current) => ({ ...current, [field]: value })); }
+  function reset() { setForm(emptyForm(product)); setEditingId(null); }
+  async function save() {
+    if (!form.sku.trim() || !form.color.trim() || !form.size.trim()) return alert("SKU, warna, dan ukuran wajib diisi.");
+    if (Number(form.price) < 0 || Number(form.stock) < 0) return alert("Harga dan stok tidak boleh negatif.");
+    setSaving(true); const payload = { product_id: product.id, sku: form.sku.trim(), color: form.color.trim(), size: form.size.trim(), price: Number(form.price), stock: Number(form.stock) };
+    const { error } = editingId ? await supabase.from("product_variants").update(payload).eq("id", editingId) : await supabase.from("product_variants").insert(payload);
+    setSaving(false); if (error) return alert(`Gagal menyimpan varian: ${error.message}`); reset(); void loadVariants();
   }
-
-  async function deleteVariant(variant: Variant) {
-    if (!confirm(`Hapus varian ${variant.color} / ${variant.size}?`)) return;
-    const { error } = await supabase.from("product_variants").delete().eq("id", variant.id);
-    if (error) return alert(`Gagal menghapus varian: ${error.message}`);
-    void loadVariants();
-  }
-
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">Varian Produk</h2><p className="mt-1 text-sm text-gray-500">{product.nama}</p></div><button onClick={onClose} className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium">Tutup</button></div><div className="mt-6 grid gap-3 rounded-xl bg-pink-50 p-4 md:grid-cols-3"><input value={sku} onChange={(event) => setSku(event.target.value)} placeholder="SKU" className="rounded-lg border border-gray-300 px-3 py-2" /><input value={color} onChange={(event) => setColor(event.target.value)} placeholder="Warna" className="rounded-lg border border-gray-300 px-3 py-2" /><input value={size} onChange={(event) => setSize(event.target.value)} placeholder="Ukuran" className="rounded-lg border border-gray-300 px-3 py-2" /><input value={price} onChange={(event) => setPrice(event.target.value)} type="number" min="0" placeholder="Harga jual" className="rounded-lg border border-gray-300 px-3 py-2" /><input value={stock} onChange={(event) => setStock(event.target.value)} type="number" min="0" placeholder="Stok awal" className="rounded-lg border border-gray-300 px-3 py-2" /><button disabled={saving} onClick={() => void addVariant()} className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white disabled:bg-pink-300">{saving ? "Menyimpan…" : "+ Tambah Varian"}</button></div><div className="mt-6 overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[620px] text-sm"><thead className="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th className="px-4 py-3">SKU</th><th className="px-4 py-3">Warna</th><th className="px-4 py-3">Ukuran</th><th className="px-4 py-3 text-right">Harga</th><th className="px-4 py-3 text-right">Stok</th><th className="px-4 py-3" /></tr></thead><tbody>{variants.map((variant) => <tr key={variant.id} className="border-t border-gray-100"><td className="px-4 py-3 font-medium">{variant.sku}</td><td className="px-4 py-3">{variant.color}</td><td className="px-4 py-3">{variant.size}</td><td className="px-4 py-3 text-right">Rp {Number(variant.price).toLocaleString("id-ID")}</td><td className="px-4 py-3 text-right">{variant.stock}</td><td className="px-4 py-3 text-right"><button onClick={() => void deleteVariant(variant)} className="text-sm font-semibold text-red-600 hover:text-red-700">Hapus</button></td></tr>)}{variants.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">Belum ada varian.</td></tr>}</tbody></table></div></div></div>;
+  function edit(variant: Variant) { setEditingId(variant.id); setForm({ sku: variant.sku, color: variant.color, size: variant.size, price: String(variant.price), stock: String(variant.stock) }); }
+  async function deleteVariant(variant: Variant) { if (variants.length <= 1) return alert("Produk harus memiliki minimal satu varian. Ubah varian ini bila diperlukan."); if (!confirm(`Hapus varian ${variant.color} / ${variant.size}?`)) return; const { error } = await supabase.from("product_variants").delete().eq("id", variant.id); if (error) return alert(`Gagal menghapus varian: ${error.message}`); void loadVariants(); }
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl sm:p-6"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">Varian Produk</h2><p className="mt-1 text-sm text-gray-500">{product.nama} · Atur warna, ukuran, harga, dan stok per varian.</p></div><button onClick={onClose} className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium hover:bg-gray-200">Tutup</button></div>
+    <div className="mt-6 rounded-xl bg-pink-50 p-4"><p className="mb-3 text-sm font-bold text-pink-900">{editingId ? "Ubah varian" : "Tambah varian"}</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field value={form.sku} onChange={(value) => update("sku", value)} placeholder="SKU" /><Field value={form.color} onChange={(value) => update("color", value)} placeholder="Warna" /><Field value={form.size} onChange={(value) => update("size", value)} placeholder="Ukuran" /><Field value={form.price} onChange={(value) => update("price", value)} placeholder="Harga jual" type="number" /><Field value={form.stock} onChange={(value) => update("stock", value)} placeholder="Stok awal" type="number" /><div className="flex gap-2"><button disabled={saving} onClick={() => void save()} className="flex-1 rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700 disabled:bg-pink-300">{saving ? "Menyimpan..." : editingId ? "Simpan" : "Tambah"}</button>{editingId && <button onClick={reset} className="rounded-lg bg-white px-3 py-2 font-semibold text-gray-700 ring-1 ring-gray-200">Batal</button>}</div></div></div>
+    <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[650px] text-sm"><thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-3">SKU</th><th className="px-4 py-3">Warna</th><th className="px-4 py-3">Ukuran</th><th className="px-4 py-3 text-right">Harga</th><th className="px-4 py-3 text-right">Stok</th><th className="px-4 py-3 text-right">Aksi</th></tr></thead><tbody>{variants.map((variant) => <tr key={variant.id} className="border-t border-gray-100"><td className="px-4 py-3 font-medium">{variant.sku}</td><td className="px-4 py-3">{variant.color}</td><td className="px-4 py-3">{variant.size}</td><td className="px-4 py-3 text-right">Rp {Number(variant.price).toLocaleString("id-ID")}</td><td className="px-4 py-3 text-right">{variant.stock}</td><td className="px-4 py-3 text-right"><button onClick={() => edit(variant)} className="mr-3 font-semibold text-pink-700 hover:text-pink-800">Ubah</button><button onClick={() => void deleteVariant(variant)} className="font-semibold text-red-600 hover:text-red-700">Hapus</button></td></tr>)}{variants.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">Belum ada varian.</td></tr>}</tbody></table></div></div></div>;
 }
+function Field({ value, onChange, placeholder, type = "text" }: { value: string; onChange: (value: string) => void; placeholder: string; type?: string }) { return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} min={type === "number" ? "0" : undefined} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" />; }

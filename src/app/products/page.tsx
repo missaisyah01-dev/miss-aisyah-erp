@@ -72,15 +72,15 @@ export default function ProductsPage() {
       <Sidebar />
 
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
 
         <Header />
 
 
-        <main className="p-8">
+        <main className="p-5 pb-24 md:p-8">
 
 
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 
 
             <div>
@@ -94,14 +94,14 @@ export default function ProductsPage() {
                 Kelola semua produk MISS AISYAH
               </p>
 
-             <div className="mt-4 flex gap-3">
+             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
 
   <input
     type="text"
     placeholder="🔍 Cari produk..."
     value={search}
     onChange={(e) => setSearch(e.target.value)}
-    className="w-80 rounded-lg border border-gray-300 px-4 py-2 focus:border-pink-500 focus:outline-none"
+    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-pink-500 focus:outline-none sm:w-80"
   />
 
   <select
@@ -128,7 +128,7 @@ export default function ProductsPage() {
                 setOpenModal(true);
               }}
 
-              className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700"
+              className="shrink-0 rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700"
 
             >
 
