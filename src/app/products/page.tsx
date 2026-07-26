@@ -6,17 +6,16 @@ import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import ProductModal from "@/components/products/ProductModal";
 import ProductTable from "@/components/products/ProductTable";
-import VariantModal from "@/components/products/VariantModal";
 
 export default function ProductsPage() {
 
   const [openModal, setOpenModal] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [variantProduct, setVariantProduct] = useState<any | null>(null);
 
   const [search, setSearch] = useState("");
-  const [filterKategori, setFilterKategori] = useState("");
+  // Nilai awal harus sama dengan opsi "Semua" agar daftar produk langsung tampil.
+  const [filterKategori, setFilterKategori] = useState("Semua");
 
 
   useEffect(() => {
@@ -160,7 +159,6 @@ export default function ProductsPage() {
     setOpenModal(true);
   }}
   onDelete={hapusProduk}
-  onVariants={(produk) => setVariantProduct(produk)}
 />
 
         </main>
@@ -188,18 +186,6 @@ export default function ProductsPage() {
         />
 
       )}
-
-      {variantProduct && (
-        <VariantModal
-          product={variantProduct}
-          onClose={() => {
-            setVariantProduct(null);
-            ambilProduk();
-          }}
-        />
-      )}
-
-
 
     </div>
 

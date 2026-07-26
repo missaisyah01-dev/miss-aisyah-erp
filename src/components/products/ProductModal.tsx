@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import VariantModal from "@/components/products/VariantModal";
 
 type Product = {
   id?: number;
@@ -29,6 +30,7 @@ export default function ProductModal({
   const [kategori, setKategori] = useState(product?.kategori ?? "");
   const [harga, setHarga] = useState(product ? String(product.harga) : "");
   const [stok, setStok] = useState(product ? String(product.stok) : "");
+  const [showVariants, setShowVariants] = useState(false);
 
 
   async function simpanProduk() {
@@ -142,7 +144,18 @@ export default function ProductModal({
         />
 
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-between gap-3">
+
+          {product?.id && (
+            <button
+              onClick={() => setShowVariants(true)}
+              className="rounded border border-violet-200 bg-violet-50 px-5 py-2 font-semibold text-violet-700 hover:bg-violet-100"
+            >
+              Kelola Variasi
+            </button>
+          )}
+
+          <div className="ml-auto flex gap-3">
 
           <button
             onClick={onClose}
@@ -159,9 +172,21 @@ export default function ProductModal({
             Simpan
           </button>
 
+          </div>
+
         </div>
 
       </div>
+
+      {showVariants && product?.id && (
+        <VariantModal
+          product={product as Product & { id: number }}
+          onClose={() => {
+            setShowVariants(false);
+            refreshProducts();
+          }}
+        />
+      )}
 
     </div>
   );

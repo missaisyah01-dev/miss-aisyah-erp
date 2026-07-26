@@ -18,7 +18,6 @@ export default function Home() {
   const [stokKeluar, setStokKeluar] = useState(0);
   const [stokMenipis, setStokMenipis] = useState(0);
   const [stokHabis, setStokHabis] = useState(0);
-  const [nilaiPersediaan, setNilaiPersediaan] = useState(0);
   const [topProducts, setTopProducts] = useState<
   { nama: string; stok: number }[]
 >([]);
@@ -70,16 +69,9 @@ export default function Home() {
         (item: any) => Number(item.stok) === 0
       ).length;
 
-      const nilai = products.reduce(
-        (sum: number, item: any) =>
-          sum + (Number(item.stok) * Number(item.harga)),
-        0
-      );
-
       setTotalStok(total);
       setStokMenipis(menipis);
       setStokHabis(habis);
-      setNilaiPersediaan(nilai);
 
       const { data: top } = await supabase
   .from("products")
@@ -200,7 +192,6 @@ setChartData(chart);
             stokKeluar={stokKeluar}
             stokMenipis={stokMenipis}
             stokHabis={stokHabis}
-            nilaiPersediaan={nilaiPersediaan}
           />
 
           <StockChart data={chartData} />
