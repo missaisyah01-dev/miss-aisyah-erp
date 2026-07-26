@@ -7,11 +7,13 @@ import Header from "@/components/layout/Header";
 import ProductModal from "@/components/products/ProductModal";
 import ProductTable from "@/components/products/ProductTable";
 
+type Product = { id: number; kode: string; nama: string; kategori: string; harga: number; stok: number };
+
 export default function ProductsPage() {
 
   const [openModal, setOpenModal] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const [search, setSearch] = useState("");
   // Nilai awal harus sama dengan opsi "Semua" agar daftar produk langsung tampil.
@@ -37,7 +39,7 @@ export default function ProductsPage() {
     }
 
 
-    setProducts(data || []);
+    setProducts((data || []) as Product[]);
 
   }
 

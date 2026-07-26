@@ -8,11 +8,13 @@ import Header from "@/components/layout/Header";
 import CategoryTable from "@/components/categories/CategoryTable";
 import CategoryModal from "@/components/categories/CategoryModal";
 
+type Category = { id: number; nama: string };
+
 export default function CategoriesPage() {
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [openModal, setOpenModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   useEffect(() => {
     ambilKategori();
@@ -30,7 +32,7 @@ export default function CategoriesPage() {
       return;
     }
 
-    setCategories(data || []);
+    setCategories((data || []) as Category[]);
   }
 
   async function hapusKategori(id: number) {

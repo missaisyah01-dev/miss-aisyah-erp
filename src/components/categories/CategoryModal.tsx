@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Category = { id: number; nama: string };
+
 type Props = {
   onClose: () => void;
   refreshCategories: () => void;
-  category?: any;
+  category?: Category | null;
 };
 
 export default function CategoryModal({
