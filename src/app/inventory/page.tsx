@@ -6,10 +6,12 @@ import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import StockTable from "@/components/stock/StockTable";
 import StockModal from "@/components/stock/StockModal";
+import StockImport from "@/components/stock/StockImport";
 
 export default function InventoryPage() {
 
   const [openModal, setOpenModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -36,16 +38,16 @@ export default function InventoryPage() {
 
             </div>
 
-            <button
+            <div className="flex flex-wrap gap-2"><StockImport onSuccess={() => setRefreshKey((key) => key + 1)} /><button
               onClick={() => setOpenModal(true)}
               className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700"
             >
               + Pergerakan Stok
-            </button>
+            </button></div>
 
           </div>
 
-          <StockTable />
+          <StockTable refreshKey={refreshKey} />
 
         </main>
 

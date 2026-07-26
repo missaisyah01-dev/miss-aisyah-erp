@@ -12,12 +12,13 @@ import { supabase } from "@/lib/supabase";
 
 type Product = { id: number; kode: string; nama: string; stok: number; harga?: number };
 type Movement = { tipe: "MASUK" | "KELUAR" | "RETUR"; jumlah: number; created_at: string; products: { nama: string } | null };
+type TopProduct = { product_name: string; total_quantity: number; total_revenue: number };
 type ChartItem = { name: string; masuk: number; keluar: number };
 const emptyChart: ChartItem[] = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((name) => ({ name, masuk: 0, keluar: 0 }));
 
 export default function Home() {
   const [totalProduk, setTotalProduk] = useState(0); const [totalStok, setTotalStok] = useState(0); const [stokMasuk, setStokMasuk] = useState(0); const [stokKeluar, setStokKeluar] = useState(0); const [stokMenipis, setStokMenipis] = useState(0); const [stokHabis, setStokHabis] = useState(0);
-  const [topProducts, setTopProducts] = useState<{ nama: string; stok: number }[]>([]); const [activities, setActivities] = useState<{ product: string; tipe: string; jumlah: number; created_at: string }[]>([]); const [chartData, setChartData] = useState<ChartItem[]>(emptyChart); const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]); const [activities, setActivities] = useState<{ product: string; tipe: string; jumlah: number; created_at: string }[]>([]); const [chartData, setChartData] = useState<ChartItem[]>(emptyChart); const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [lowStockThreshold] = useState(() => {
     if (typeof window === "undefined") return 5;
     try { return Math.max(0, Number(JSON.parse(window.localStorage.getItem("miss-aisyah-preferences") ?? "{}").lowStock ?? 5)); } catch { return 5; }
@@ -25,17 +26,18 @@ export default function Home() {
 
   useEffect(() => {
     async function loadDashboard() {
-      const [countResult, productsResult, movementsResult] = await Promise.all([
+      const [countResult, productsResult, movementsResult, topProductsResult] = await Promise.all([
         supabase.from("products").select("*", { count: "exact", head: true }),
         supabase.from("products").select("id,kode,nama,stok").order("stok", { ascending: true }),
         supabase.from("stock_movements").select("tipe,jumlah,created_at,products(nama)").order("created_at", { ascending: false }),
+        supabase.rpc("get_top_selling_products", { p_start: null, p_limit: 5 }),
       ]);
       setTotalProduk(countResult.count ?? 0);
       const products = (productsResult.data ?? []) as Product[];
       setTotalStok(products.reduce((sum, product) => sum + Number(product.stok), 0));
       setStokMenipis(products.filter((product) => Number(product.stok) <= lowStockThreshold).length);
       setStokHabis(products.filter((product) => Number(product.stok) === 0).length);
-      setTopProducts(products.slice().sort((a, b) => Number(b.stok) - Number(a.stok)).slice(0, 5).map(({ nama, stok }) => ({ nama, stok })));
+      if (topProductsResult.error) alert(`Gagal memuat produk terlaris: ${topProductsResult.error.message}`); else setTopProducts((topProductsResult.data ?? []) as TopProduct[]);
       setLowStockProducts(products.filter((product) => Number(product.stok) <= lowStockThreshold).slice(0, 8));
       const movements = (movementsResult.data ?? []) as Movement[];
       setActivities(movements.slice(0, 5).map((movement) => ({ product: movement.products?.nama ?? "-", tipe: movement.tipe, jumlah: Number(movement.jumlah), created_at: movement.created_at })));
