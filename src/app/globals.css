@@ -25,3 +25,93 @@ select,
 textarea {
   font: inherit;
 }
+
+.header-cart-dash {
+  position: absolute;
+  top: -3px;
+  left: -42px;
+  width: 30px;
+  height: 27px;
+  animation: cart-dash 1.55s cubic-bezier(.16,.84,.3,1) both;
+}
+
+.header-cart-dash__basket {
+  position: absolute;
+  top: 6px;
+  left: 7px;
+  width: 19px;
+  height: 12px;
+  border: 2px solid #db2777;
+  border-top: 0;
+  transform: skewX(-10deg);
+}
+
+.header-cart-dash__basket::before {
+  position: absolute;
+  top: -6px;
+  left: -8px;
+  width: 10px;
+  height: 2px;
+  background: #db2777;
+  content: "";
+}
+
+.header-cart-dash__package {
+  position: absolute;
+  bottom: 1px;
+  left: 5px;
+  width: 7px;
+  height: 6px;
+  background: #f9a8d4;
+  transform: skewX(10deg);
+}
+
+.header-cart-dash__wheel {
+  position: absolute;
+  top: 20px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #9d174d;
+}
+
+.header-cart-dash__wheel--left { left: 11px; }
+.header-cart-dash__wheel--right { left: 23px; }
+
+.header-cart-dash__speed {
+  position: absolute;
+  left: -16px;
+  height: 2px;
+  background: #f9a8d4;
+  border-radius: 999px;
+}
+
+.header-cart-dash__speed--one { top: 9px; width: 11px; }
+.header-cart-dash__speed--two { top: 15px; left: -10px; width: 7px; }
+
+.header-brand-title,
+.header-brand-subtitle {
+  animation: brand-reveal .5s ease-out both;
+}
+
+.header-brand-title { animation-delay: .42s; }
+.header-brand-subtitle { animation-delay: .64s; }
+
+@keyframes cart-dash {
+  0% { transform: translateX(0) scale(.78); opacity: 0; }
+  10% { opacity: 1; }
+  70% { transform: translateX(142px) scale(1); opacity: 1; }
+  86% { transform: translateX(165px) scale(.96); opacity: 1; }
+  100% { transform: translateX(178px) scale(.9); opacity: 0; }
+}
+
+@keyframes brand-reveal {
+  from { clip-path: inset(0 100% 0 0); opacity: 0; transform: translateX(-8px); }
+  to { clip-path: inset(0 0 0 0); opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-cart-dash { display: none; }
+  .header-brand-title,
+  .header-brand-subtitle { animation: none; }
+}
