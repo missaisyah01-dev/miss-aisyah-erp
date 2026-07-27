@@ -38,7 +38,7 @@ export default function SalesReport() {
     if (transactionsResult.error) alert(`Gagal memuat laporan: ${transactionsResult.error.message}`); else setTransactions((transactionsResult.data ?? []) as Transaction[]);
     if (productsResult.error) alert(`Gagal memuat produk terlaris: ${productsResult.error.message}`); else setTopProducts((productsResult.data ?? []) as TopProduct[]);
     if (receivablesResult.error) alert(`Gagal memuat piutang: ${receivablesResult.error.message}`); else setReceivables((receivablesResult.data ?? []) as Receivable[]);
-    if (returnsResult.error) alert(`Gagal memuat retur: ${returnsResult.error.message}`); else setReturns((returnsResult.data ?? []) as ReturnItem[]);
+    if (returnsResult.error) alert(`Gagal memuat retur: ${returnsResult.error.message}`); else setReturns((returnsResult.data ?? []) as unknown as ReturnItem[]);
     setLoading(false);
   }
 

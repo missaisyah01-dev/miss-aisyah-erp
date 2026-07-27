@@ -11,7 +11,7 @@ import LowStockAlert from "@/components/dashboard/LowStockAlert";
 import { supabase } from "@/lib/supabase";
 
 type Product = { id: number; kode: string; nama: string; stok: number; harga?: number };
-type Movement = { tipe: "MASUK" | "KELUAR" | "RETUR"; jumlah: number; created_at: string; products: { nama: string } | null };
+type Movement = { tipe: "MASUK" | "KELUAR" | "RETUR"; jumlah: number; created_at: string; products: { nama: string } | { nama: string }[] | null };
 type TopProduct = { product_name: string; total_quantity: number; total_revenue: number };
 type ChartItem = { name: string; masuk: number; keluar: number };
 const emptyChart: ChartItem[] = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((name) => ({ name, masuk: 0, keluar: 0 }));
@@ -39,8 +39,8 @@ export default function Home() {
       setStokHabis(products.filter((product) => Number(product.stok) === 0).length);
       if (topProductsResult.error) alert(`Gagal memuat produk terlaris: ${topProductsResult.error.message}`); else setTopProducts((topProductsResult.data ?? []) as TopProduct[]);
       setLowStockProducts(products.filter((product) => Number(product.stok) <= lowStockThreshold).slice(0, 8));
-      const movements = (movementsResult.data ?? []) as Movement[];
-      setActivities(movements.slice(0, 5).map((movement) => ({ product: movement.products?.nama ?? "-", tipe: movement.tipe, jumlah: Number(movement.jumlah), created_at: movement.created_at })));
+      const movements = (movementsResult.data ?? []) as unknown as Movement[];
+      setActivities(movements.slice(0, 5).map((movement) => ({ product: (Array.isArray(movement.products) ? movement.products[0] : movement.products)?.nama ?? "-", tipe: movement.tipe, jumlah: Number(movement.jumlah), created_at: movement.created_at })));
       setStokMasuk(movements.filter((movement) => movement.tipe === "MASUK").reduce((sum, movement) => sum + Number(movement.jumlah), 0));
       setStokKeluar(movements.filter((movement) => movement.tipe === "KELUAR").reduce((sum, movement) => sum + Number(movement.jumlah), 0));
       const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
