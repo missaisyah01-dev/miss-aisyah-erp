@@ -26,6 +26,19 @@ textarea {
   font: inherit;
 }
 
+/* Tabel riwayat penjualan dibuat dapat di-scroll secara vertikal tanpa
+   mengubah struktur komponen yang juga dipakai oleh modal/detail transaksi. */
+section > div.mt-5.overflow-x-auto.rounded-xl.border.border-gray-200 {
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+section > div.mt-5.overflow-x-auto.rounded-xl.border.border-gray-200 > table > thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .header-cart-dash {
   position: absolute;
   top: -3px;

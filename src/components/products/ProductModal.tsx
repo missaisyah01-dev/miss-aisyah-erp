@@ -32,8 +32,22 @@ export default function ProductModal({ onClose, refreshProducts, product }: Prod
     if (!kode.trim() || !nama.trim() || !kategori) return alert("SKU, nama, dan kategori wajib diisi.");
     if (Number(harga) < 0 || Number(stok) < 0) return alert("Harga dan stok tidak boleh negatif.");
     setSaving(true);
-    const payload = { kode: kode.trim(), nama: nama.trim(), kategori, harga: Number(harga), stok: Number(stok) };
-    const { error } = product?.id ? await supabase.from("products").update(payload).eq("id", product.id) : await supabase.from("products").insert(payload);
+    const payload = { kode: kode.trim(), nama: nama.trim(), kategori, harga: Number(harga) };
+    const { error } = product?.id
+      ? await supabase.from("products").update(payload).eq("id", product.id)
+      : await supabase.from("products").insert({ ...payload, stok: Number(stok) });
+    if (!error && product?.id) {
+      const { error: stockError } = await supabase.rpc("set_product_total_stock", {
+        p_product_id: product.id,
+        p_stock: Number(stok),
+      });
+      setSaving(false);
+      if (stockError) return alert(`Gagal mengubah stok: ${stockError.message}`);
+      alert("Produk berhasil diperbarui");
+      refreshProducts();
+      onClose();
+      return;
+    }
     setSaving(false);
     if (error) return alert(`Gagal menyimpan produk: ${error.message}`);
     alert(product?.id ? "Produk berhasil diperbarui" : "Produk berhasil ditambahkan");
