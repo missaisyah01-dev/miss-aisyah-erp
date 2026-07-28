@@ -7,10 +7,12 @@ import Header from "@/components/layout/Header";
 import StockTable from "@/components/stock/StockTable";
 import StockModal from "@/components/stock/StockModal";
 import StockImport from "@/components/stock/StockImport";
+import StockOpnamePanel from "@/components/stock/StockOpnamePanel";
 
 export default function InventoryPage() {
 
   const [openModal, setOpenModal] = useState(false);
+  const [openOpname, setOpenOpname] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -38,7 +40,7 @@ export default function InventoryPage() {
 
             </div>
 
-            <div className="flex flex-wrap gap-2"><StockImport onSuccess={() => setRefreshKey((key) => key + 1)} /><button
+            <div className="flex flex-wrap gap-2"><StockImport onSuccess={() => setRefreshKey((key) => key + 1)} /><button onClick={() => setOpenOpname(true)} className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 font-semibold text-violet-700 hover:bg-violet-100">Stok Opname</button><button
               onClick={() => setOpenModal(true)}
               className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700"
             >
@@ -58,6 +60,7 @@ export default function InventoryPage() {
           onClose={() => setOpenModal(false)}
         />
       )}
+      {openOpname && <StockOpnamePanel onClose={() => setOpenOpname(false)} onSuccess={() => setRefreshKey((key) => key + 1)} />}
 
     </div>
   );
