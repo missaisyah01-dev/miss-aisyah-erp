@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { printReceipt } from "@/lib/receipt";
+import { useBrand } from "@/components/brand/BrandProvider";
 
 type Product = { id: number; kode: string; nama: string; kategori: string };
 type Variant = { id: number; product_id: number; sku: string; color: string; size: string; price: number; stock: number };
@@ -14,6 +15,7 @@ const currencyInput = (value: string) => value ? rupiah(Number(value)) : "";
 const numericInput = (value: string) => value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
 
 export default function PosTerminal() {
+  const { brand } = useBrand();
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -34,15 +36,15 @@ export default function PosTerminal() {
 
   async function load() {
     const [productResult, variantResult] = await Promise.all([
-      supabase.from("products").select("id,kode,nama,kategori").order("nama"),
-      supabase.from("product_variants").select("id,product_id,sku,color,size,price,stock").gt("stock", 0),
+      supabase.from("products").select("id,kode,nama,kategori").eq("brand_id", brand?.id ?? "").order("nama"),
+      supabase.from("product_variants").select("id,product_id,sku,color,size,price,stock").eq("brand_id", brand?.id ?? "").gt("stock", 0),
     ]);
     if (productResult.error) alert(productResult.error.message); else setProducts((productResult.data ?? []) as Product[]);
     if (variantResult.error) alert(variantResult.error.message); else setVariants((variantResult.data ?? []) as Variant[]);
   }
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { if (brand) void load(); }, [brand?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function add(product: Product, variant: Variant) {
     setCart((current) => {
@@ -64,7 +66,8 @@ export default function PosTerminal() {
     if (!isReceivable && paidValue < total) return alert("Nominal pembayaran masih kurang.");
     if (isReceivable && !customer.trim()) return alert("Nama pelanggan wajib untuk piutang.");
     setSaving(true);
-    const { data, error } = await supabase.rpc("create_sale", { p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null });
+    if (!brand) return;
+    const { data, error } = await supabase.rpc("create_sale", { p_brand_id: brand.id, p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null });
     setSaving(false);
     if (error) return alert(`Transaksi gagal: ${error.message}`);
     const result = Array.isArray(data) ? data[0] : data;

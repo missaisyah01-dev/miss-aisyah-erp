@@ -9,12 +9,14 @@ type Props = {
   onClose: () => void;
   refreshCategories: () => void;
   category?: Category | null;
+  brandId: string;
 };
 
 export default function CategoryModal({
   onClose,
   refreshCategories,
   category,
+  brandId,
 }: Props) {
 
   const [nama, setNama] = useState(category?.nama || "");
@@ -35,7 +37,8 @@ export default function CategoryModal({
         .update({
           nama,
         })
-        .eq("id", category.id));
+        .eq("id", category.id)
+        .eq("brand_id", brandId));
 
     } else {
 
@@ -44,6 +47,7 @@ export default function CategoryModal({
         .insert([
           {
             nama,
+            brand_id: brandId,
           },
         ]));
 

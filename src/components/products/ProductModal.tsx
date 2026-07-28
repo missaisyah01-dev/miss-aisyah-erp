@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,9 +8,9 @@ import VariantModal from "@/components/products/VariantModal";
 
 type Product = { id?: number; kode: string; nama: string; kategori: string; harga: number; stok: number };
 type Category = { id: number; nama: string };
-type ProductModalProps = { onClose: () => void; refreshProducts: () => void; product?: Product | null };
+type ProductModalProps = { onClose: () => void; refreshProducts: () => void; product?: Product | null; brandId: string };
 
-export default function ProductModal({ onClose, refreshProducts, product }: ProductModalProps) {
+export default function ProductModal({ onClose, refreshProducts, product, brandId }: ProductModalProps) {
   const [kode, setKode] = useState(product?.kode ?? "");
   const [nama, setNama] = useState(product?.nama ?? "");
   const [kategori, setKategori] = useState(product?.kategori ?? "");
@@ -20,13 +21,13 @@ export default function ProductModal({ onClose, refreshProducts, product }: Prod
   const [saving, setSaving] = useState(false);
 
   async function loadCategories() {
-    const { data, error } = await supabase.from("categories").select("id,nama").order("nama");
+    const { data, error } = await supabase.from("categories").select("id,nama").eq("brand_id", brandId).order("nama");
     if (error) return alert(`Gagal memuat kategori: ${error.message}`);
     setCategories((data ?? []) as Category[]);
   }
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadCategories(); }, []);
+  useEffect(() => { if (brandId) void loadCategories(); }, [brandId]);
 
   async function simpanProduk() {
     if (!kode.trim() || !nama.trim() || !kategori) return alert("SKU, nama, dan kategori wajib diisi.");
@@ -34,8 +35,8 @@ export default function ProductModal({ onClose, refreshProducts, product }: Prod
     setSaving(true);
     const payload = { kode: kode.trim(), nama: nama.trim(), kategori, harga: Number(harga) };
     const { error } = product?.id
-      ? await supabase.from("products").update(payload).eq("id", product.id)
-      : await supabase.from("products").insert({ ...payload, stok: Number(stok) });
+      ? await supabase.from("products").update(payload).eq("id", product.id).eq("brand_id", brandId)
+      : await supabase.from("products").insert({ ...payload, stok: Number(stok), brand_id: brandId });
     if (!error && product?.id) {
       const { error: stockError } = await supabase.rpc("set_product_total_stock", {
         p_product_id: product.id,
