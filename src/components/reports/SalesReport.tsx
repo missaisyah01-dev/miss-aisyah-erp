@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { supabase } from "@/lib/supabase";
 
 type Transaction = { id: number; total: number; paid_amount: number; payment_status: "LUNAS" | "BELUM_LUNAS" | "RETUR"; customer_name: string | null; payment_method: "CASH" | "QRIS" | "TRANSFER" | "PIUTANG"; created_at: string };
 type Receivable = Pick<Transaction, "id" | "total" | "paid_amount" | "customer_name" | "created_at"> & { invoice_number: string };
-type ReturnItem = { id: number; quantity: number; refund_amount: number; refund_method: string; reason: string | null; created_at: string; transaction_items: { transaction_id: number; product_name: string; variant_name: string | null; transactions: { id: number; invoice_number: string } | null } | null };
+type ReturnItem = { id: number; transaction_item_id: number; quantity: number; refund_amount: number; refund_method: string; reason: string | null; created_at: string; transaction_items: { transaction_id: number; product_name: string; variant_name: string | null; transactions: { id: number; invoice_number: string } | null } | null };
+type ExportItem = { id: number; transaction_id: number; product_name: string; quantity: number; unit_price: number; subtotal: number; products: { kode: string } | { kode: string }[] | null; transactions: { customer_name: string | null; created_at: string; payment_status: Transaction["payment_status"] } | { customer_name: string | null; created_at: string; payment_status: Transaction["payment_status"] }[] | null };
 type TopProduct = { product_id: number; product_name: string; total_quantity: number; total_revenue: number };
 type Period = "HARI_INI" | "MINGGU_INI" | "BULAN_INI" | "SEMUA";
 
@@ -27,7 +28,7 @@ export default function SalesReport() {
     setLoading(true);
     const start = startOfPeriod(period);
     let transactionQuery = supabase.from("transactions").select("id,total,paid_amount,payment_status,customer_name,payment_method,created_at").order("created_at", { ascending: true }).limit(1000);
-    let returnsQuery = supabase.from("transaction_returns").select("id,quantity,refund_amount,refund_method,reason,created_at,transaction_items(transaction_id,product_name,variant_name,transactions(id,invoice_number))").order("created_at", { ascending: false }).limit(50);
+    let returnsQuery = supabase.from("transaction_returns").select("id,transaction_item_id,quantity,refund_amount,refund_method,reason,created_at,transaction_items(transaction_id,product_name,variant_name,transactions(id,invoice_number))").order("created_at", { ascending: false }).limit(50);
     if (start) { transactionQuery = transactionQuery.gte("created_at", start); returnsQuery = returnsQuery.gte("created_at", start); }
     const [transactionsResult, productsResult, receivablesResult, returnsResult] = await Promise.all([
       transactionQuery,
@@ -69,12 +70,50 @@ export default function SalesReport() {
   const returnQuantity = returns.reduce((sum, item) => sum + Number(item.quantity), 0);
   const returnTotal = summary.returnTotal;
 
-  function exportExcel() {
+  async function exportExcel() {
+    const transactionIds = transactions.map((transaction) => transaction.id);
+    const { data, error } = transactionIds.length ? await supabase.from("transaction_items").select("id,transaction_id,product_name,quantity,unit_price,subtotal,products(kode),transactions!inner(customer_name,created_at,payment_status)").in("transaction_id", transactionIds).order("transaction_id") : { data: [], error: null };
+    if (error) return alert(`Gagal menyiapkan ekspor Excel: ${error.message}`);
+    const first = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
+    const returnedByItem = returns.reduce<Record<number, number>>((all, item) => ({ ...all, [item.transaction_item_id]: (all[item.transaction_item_id] ?? 0) + Number(item.quantity) }), {});
+    const rows = ((data ?? []) as unknown as ExportItem[]).map((item) => {
+      const transaction = first(item.transactions);
+      const product = first(item.products);
+      const returned = returnedByItem[item.id] ?? 0;
+      const sold = Math.max(0, Number(item.quantity) - returned);
+      return { date: transaction ? new Date(transaction.created_at) : null, customer: transaction?.customer_name ?? "-", product: item.product_name, code: product?.kode ?? "-", price: Number(item.unit_price), quantity: Number(item.quantity), returned, sold, total: Number(item.unit_price) * sold, status: transaction?.payment_status === "LUNAS" ? "L" : transaction?.payment_status === "RETUR" ? "R" : "BL" };
+    });
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{ Periode: period.replaceAll("_", " "), Omzet: summary.omzet, "Jumlah total lunas": summary.lunas, "Jumlah belum lunas": summary.belumLunas, "Jumlah transaksi": transactions.length, "Rata-rata transaksi": summary.average }]), "Ringkasan");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(transactions.map((item) => ({ Tanggal: new Date(item.created_at).toLocaleString("id-ID"), Total: Number(item.total), Dibayar: Number(item.paid_amount), Status: item.payment_status, Metode: item.payment_method, Pelanggan: item.customer_name ?? "" }))), "Transaksi");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(receivables.map((item) => ({ Invoice: item.invoice_number, Pelanggan: item.customer_name ?? "", Tanggal: new Date(item.created_at).toLocaleDateString("id-ID"), Sisa: Math.max(0, Number(item.total) - (summary.refundsByTransaction[item.id] ?? 0) - Number(item.paid_amount)) }))), "Piutang");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(returns.map((item) => ({ Invoice: item.transaction_items?.transactions?.invoice_number ?? "", Produk: item.transaction_items?.product_name ?? "", Varian: item.transaction_items?.variant_name ?? "", Jumlah: Number(item.quantity), Refund: Number(item.refund_amount), Metode: item.refund_method, Alasan: item.reason ?? "", Tanggal: new Date(item.created_at).toLocaleString("id-ID") }))), "Retur");
+    const sheet = XLSX.utils.aoa_to_sheet([]);
+    const set = (address: string, value: string | number | Date | null, style: Record<string, unknown> = {}) => { sheet[address] = { t: value instanceof Date ? "d" : typeof value === "number" ? "n" : "s", v: value ?? "", s: style } as XLSX.CellObject; };
+    const gray = "B7B7B7", yellow = "FFF200", green = "70AD47", red = "C00000", border = { style: "thin", color: { rgb: "9E9E9E" } };
+    const periodLabel = period === "HARI_INI" ? new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" }).toUpperCase() : period.replaceAll("_", " ");
+    sheet["!merges"] = ["D1:L1", "D2:L2", "A4:O4", "A5:B5", "C5:D5", "E5:F5", "H5:I5", "M5:N5", "Q4:R4", "Q5:R5"].map((range) => XLSX.utils.decode_range(range));
+    set("D1", "LAPORAN PENJUALAN HARIAN", { font: { bold: true, sz: 16 }, alignment: { horizontal: "center" } });
+    set("D2", "MISS AISYAH", { font: { bold: true, sz: 16 }, alignment: { horizontal: "center" } });
+    set("A1", periodLabel, { font: { bold: true, sz: 14 } });
+    set("A4", "DATA PENJUALAN HARIAN MISS AISYAH", { fill: { fgColor: { rgb: gray } }, font: { bold: true }, alignment: { horizontal: "center" }, border: { top: border, bottom: border, left: border, right: border } });
+    [["L2", "SOLD", red], ["M2", "BRUTO", green], ["Q2", "LUNAS", green], ["R2", "BELUM LUNAS", red]].forEach(([address, value, color]) => set(address, value, { fill: { fgColor: { rgb: color as string } }, font: { bold: true, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center" }, border: { top: border, bottom: border, left: border, right: border } }));
+    set("L3", rows.reduce((sum, row) => sum + row.sold, 0), { alignment: { horizontal: "center" }, border: { top: border, bottom: border, left: border, right: border } });
+    set("M3", rows.reduce((sum, row) => sum + row.price * row.quantity, 0), { numFmt: '"Rp" #,##0', border: { top: border, bottom: border, left: border, right: border } });
+    set("Q3", summary.lunas, { numFmt: '"Rp" #,##0', border: { top: border, bottom: border, left: border, right: border } });
+    set("R3", summary.belumLunas, { numFmt: '"Rp" #,##0', border: { top: border, bottom: border, left: border, right: border } });
+    set("Q4", "JUMLAH YANG HARUS ADA", { fill: { fgColor: { rgb: yellow } }, font: { bold: true }, alignment: { horizontal: "center" }, border: { top: border, bottom: border, left: border, right: border } });
+    set("Q5", summary.omzet, { numFmt: '"Rp" #,##0', font: { bold: true }, border: { top: border, bottom: border, left: border, right: border } });
+    const headers = [["A5", "Tanggal", gray], ["C5", "Nama Pembeli", gray], ["E5", "Nama Produk", gray], ["G5", "Kode", gray], ["H5", "Harga Jual", yellow], ["J5", "Quantity", gray], ["K5", "Return", gray], ["L5", "Terjual", gray], ["M5", "Total", gray], ["O5", "Keterangan", gray]];
+    headers.forEach(([address, value, color]) => set(address, value, { fill: { fgColor: { rgb: color } }, font: { bold: true }, alignment: { horizontal: "center", vertical: "center" }, border: { top: border, bottom: border, left: border, right: border } }));
+    rows.forEach((row, index) => {
+      const rowNumber = index + 6;
+      [["A", row.date, "dd/mm/yyyy"], ["C", row.customer], ["E", row.product], ["G", row.code], ["H", "Rp"], ["I", row.price, "#,##0"], ["J", row.quantity], ["K", row.returned], ["L", row.sold], ["M", "Rp"], ["N", row.total, "#,##0"], ["O", row.status]].forEach(([column, value, numFmt]) => set(`${column}${rowNumber}`, value as string | number | Date | null, { numFmt: numFmt as string | undefined, alignment: { horizontal: ["H", "I", "J", "K", "L", "M", "N", "O"].includes(column as string) ? "center" : "left" }, border: { top: border, bottom: border, left: border, right: border } }));
+      ["A:B", "C:D", "E:F"].forEach((columns) => sheet["!merges"]?.push(XLSX.utils.decode_range(`${columns.split(":")[0]}${rowNumber}:${columns.split(":")[1]}${rowNumber}`)));
+    });
+    // SheetJS tidak memperluas area data secara otomatis ketika sel ditulis manual.
+    // Tanpa referensi ini Excel hanya membuka A1 dan seluruh tabel tampak kosong.
+    sheet["!ref"] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 17, r: Math.max(5, rows.length + 5) } });
+    sheet["!cols"] = [12, 3, 18, 3, 22, 3, 12, 4, 12, 10, 10, 10, 4, 14, 14, 3, 16, 18].map((wch) => ({ wch }));
+    sheet["!rows"] = [{ hpt: 22 }, { hpt: 24 }, { hpt: 20 }, { hpt: 20 }, { hpt: 22 }];
+    sheet["!autofilter"] = { ref: `A5:O${Math.max(6, rows.length + 5)}` };
+    XLSX.utils.book_append_sheet(workbook, sheet, "Laporan Harian");
     XLSX.writeFile(workbook, `laporan-penjualan-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 

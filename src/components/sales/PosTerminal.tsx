@@ -8,19 +8,91 @@ type Product = { id: number; kode: string; nama: string; kategori: string };
 type Variant = { id: number; product_id: number; sku: string; color: string; size: string; price: number; stock: number };
 type CartItem = Variant & { productName: string; quantity: number };
 type Method = "CASH" | "QRIS" | "TRANSFER" | "PIUTANG";
+
 const rupiah = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
+const currencyInput = (value: string) => value ? rupiah(Number(value)) : "";
+const numericInput = (value: string) => value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
 
 export default function PosTerminal() {
-  const [products, setProducts] = useState<Product[]>([]); const [variants, setVariants] = useState<Variant[]>([]); const [cart, setCart] = useState<CartItem[]>([]); const [search, setSearch] = useState(""); const [method, setMethod] = useState<Method>("CASH"); const [paid, setPaid] = useState(""); const [customer, setCustomer] = useState(""); const [notes, setNotes] = useState(""); const [discountType, setDiscountType] = useState<"NOMINAL" | "PERCENT">("NOMINAL"); const [discountValue, setDiscountValue] = useState(""); const [discountReason, setDiscountReason] = useState(""); const [saving, setSaving] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [method, setMethod] = useState<Method>("CASH");
+  const [paid, setPaid] = useState("");
+  const [customer, setCustomer] = useState("");
+  const [notes, setNotes] = useState("");
+  const [discountType, setDiscountType] = useState<"NOMINAL" | "PERCENT">("NOMINAL");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
+  const [saving, setSaving] = useState(false);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [cart]);
   const discount = Math.min(subtotal, Math.max(0, discountType === "PERCENT" ? subtotal * (Number(discountValue) || 0) / 100 : Number(discountValue) || 0));
-  const total = subtotal - discount; const isReceivable = method === "PIUTANG";
+  const total = subtotal - discount;
+  const isReceivable = method === "PIUTANG";
   const results = products.filter((product) => `${product.nama} ${product.kode} ${product.kategori}`.toLowerCase().includes(search.toLowerCase()));
-  async function load() { const [productResult, variantResult] = await Promise.all([supabase.from("products").select("id,kode,nama,kategori").order("nama"), supabase.from("product_variants").select("id,product_id,sku,color,size,price,stock").gt("stock", 0)]); if (productResult.error) alert(productResult.error.message); else setProducts((productResult.data ?? []) as Product[]); if (variantResult.error) alert(variantResult.error.message); else setVariants((variantResult.data ?? []) as Variant[]); }
+
+  async function load() {
+    const [productResult, variantResult] = await Promise.all([
+      supabase.from("products").select("id,kode,nama,kategori").order("nama"),
+      supabase.from("product_variants").select("id,product_id,sku,color,size,price,stock").gt("stock", 0),
+    ]);
+    if (productResult.error) alert(productResult.error.message); else setProducts((productResult.data ?? []) as Product[]);
+    if (variantResult.error) alert(variantResult.error.message); else setVariants((variantResult.data ?? []) as Variant[]);
+  }
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, []);
-  function add(product: Product, variant: Variant) { setCart((current) => { const found = current.find((item) => item.id === variant.id); if (!found) return [...current, { ...variant, productName: product.nama, quantity: 1 }]; if (found.quantity >= variant.stock) return current; return current.map((item) => item.id === variant.id ? { ...item, quantity: item.quantity + 1 } : item); }); }
-  function change(id: number, quantity: number) { setCart((current) => current.flatMap((item) => item.id !== id ? [item] : quantity <= 0 ? [] : [{ ...item, quantity: Math.min(quantity, item.stock) }])); }
-  async function checkout() { if (!cart.length) return alert("Pilih minimal satu varian produk."); if (Number(discountValue) < 0 || (discountType === "PERCENT" && Number(discountValue) > 100)) return alert("Nilai diskon tidak valid."); const paidValue = Number(paid) || 0; if (!isReceivable && paidValue < total) return alert("Nominal pembayaran masih kurang."); if (isReceivable && !customer.trim()) return alert("Nama pelanggan wajib untuk piutang."); setSaving(true); const { data, error } = await supabase.rpc("create_sale", { p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null }); setSaving(false); if (error) return alert(`Transaksi gagal: ${error.message}`); const result = Array.isArray(data) ? data[0] : data; const receipt = { invoice_number: result?.invoice_number ?? "", created_at: new Date().toISOString(), payment_method: method, subtotal, discount_amount: discount, total, paid_amount: paidValue, change_amount: isReceivable ? 0 : Math.max(0, paidValue - total), customer_name: customer || null, notes, items: cart.map((item) => ({ product_name: item.productName, variant_name: `${item.color} / ${item.size}`, quantity: item.quantity, unit_price: Number(item.price), subtotal: Number(item.price) * item.quantity })) }; alert(`Transaksi ${result?.invoice_number ?? ""} berhasil disimpan.`); if (confirm("Cetak struk sekarang?")) printReceipt(receipt); setCart([]); setPaid(""); setCustomer(""); setNotes(""); setDiscountValue(""); setDiscountReason(""); void load(); }
-  return <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]"><section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex justify-between gap-3"><div><h2 className="text-xl font-bold">Pilih produk</h2><p className="text-sm text-gray-500">{results.length} produk tersedia</p></div><button onClick={() => setCart([])} className="text-sm font-semibold text-pink-700">Kosongkan</button></div><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari produk, SKU, atau kategori..." className="mt-5 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3"/><div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{results.map((product) => <article key={product.id} className="rounded-2xl border border-gray-200 p-4"><b>{product.nama}</b><p className="mt-1 text-xs text-gray-500">{product.kode} · {product.kategori}</p><div className="mt-4 space-y-2">{variants.filter((variant) => variant.product_id === product.id).map((variant) => <button key={variant.id} onClick={() => add(product, variant)} className="flex w-full justify-between rounded-xl bg-gray-50 px-3 py-2 text-left hover:bg-pink-50"><span><b className="block text-sm">{variant.color} / {variant.size}</b><small>Stok {variant.stock}</small></span><b className="text-sm text-pink-700">{rupiah(Number(variant.price))}</b></button>)}</div></article>)}</div></section><aside className="h-fit rounded-2xl border border-gray-200 bg-white shadow-sm xl:sticky xl:top-20"><div className="border-b p-5"><h2 className="text-xl font-bold">Keranjang</h2></div><div className="max-h-72 divide-y overflow-y-auto px-5">{cart.length ? cart.map((item) => <div key={item.id} className="py-4"><div className="flex justify-between"><span><b className="block">{item.productName}</b><small>{item.color} / {item.size}</small></span><b>{rupiah(item.price * item.quantity)}</b></div><div className="mt-2 flex gap-2"><button onClick={() => change(item.id, item.quantity - 1)} className="rounded bg-gray-100 px-2">−</button><span>{item.quantity}</span><button onClick={() => change(item.id, item.quantity + 1)} className="rounded bg-pink-100 px-2">+</button></div></div>) : <p className="py-10 text-center text-sm text-gray-500">Keranjang masih kosong.</p>}</div><div className="space-y-3 border-t p-5"><div className="grid grid-cols-2 gap-2"><select value={discountType} onChange={(event) => setDiscountType(event.target.value as "NOMINAL" | "PERCENT")} className="rounded-xl border px-2"><option value="NOMINAL">Diskon Rp</option><option value="PERCENT">Diskon %</option></select><input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} type="number" min="0" placeholder="Nilai diskon" className="rounded-xl border px-3 py-2.5"/></div>{Number(discountValue) > 0 && <input value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Kode / alasan promo" className="w-full rounded-xl border px-3 py-2.5"/>}<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder={isReceivable ? "Nama pelanggan (wajib)" : "Nama pelanggan (opsional)"} className="w-full rounded-xl border px-3 py-2.5"/><div className="grid grid-cols-2 gap-2">{([['CASH','Tunai'],['QRIS','QRIS'],['TRANSFER','Transfer'],['PIUTANG','Bayar nanti']] as const).map(([value,label]) => <button key={value} onClick={() => setMethod(value)} className={`rounded-lg border px-2 py-2 text-sm font-semibold ${method === value ? "border-pink-600 bg-pink-50 text-pink-700" : "border-gray-200"}`}>{label}</button>)}</div><input value={paid} onChange={(event) => setPaid(event.target.value)} type="number" min="0" placeholder={isReceivable ? "Uang muka (opsional)" : "Nominal pembayaran"} className="w-full rounded-xl border px-3 py-2.5"/><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Catatan transaksi" className="min-h-18 w-full rounded-xl border px-3 py-2.5"/><div className="border-t pt-4">{discount > 0 && <><div className="flex justify-between text-sm"><span>Subtotal</span><span>{rupiah(subtotal)}</span></div><div className="flex justify-between text-sm text-emerald-700"><span>Diskon</span><span>-{rupiah(discount)}</span></div></>}<div className="flex justify-between text-lg font-bold"><span>Total</span><span>{rupiah(total)}</span></div>{isReceivable && <div className="flex justify-between text-sm text-amber-700"><span>Sisa piutang</span><span>{rupiah(Math.max(0, total - (Number(paid) || 0)))}</span></div>}</div><button disabled={saving || !cart.length} onClick={() => void checkout()} className="w-full rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white disabled:bg-pink-300">{saving ? "Menyimpan..." : isReceivable ? "Simpan piutang" : "Bayar sekarang"}</button></div></aside></div>;
+
+  function add(product: Product, variant: Variant) {
+    setCart((current) => {
+      const found = current.find((item) => item.id === variant.id);
+      if (!found) return [...current, { ...variant, productName: product.nama, quantity: 1 }];
+      if (found.quantity >= variant.stock) return current;
+      return current.map((item) => item.id === variant.id ? { ...item, quantity: item.quantity + 1 } : item);
+    });
+  }
+
+  function change(id: number, quantity: number) {
+    setCart((current) => current.flatMap((item) => item.id !== id ? [item] : quantity <= 0 ? [] : [{ ...item, quantity: Math.min(quantity, item.stock) }]));
+  }
+
+  async function checkout() {
+    if (!cart.length) return alert("Pilih minimal satu varian produk.");
+    if (Number(discountValue) < 0 || (discountType === "PERCENT" && Number(discountValue) > 100)) return alert("Nilai diskon tidak valid.");
+    const paidValue = Number(paid) || 0;
+    if (!isReceivable && paidValue < total) return alert("Nominal pembayaran masih kurang.");
+    if (isReceivable && !customer.trim()) return alert("Nama pelanggan wajib untuk piutang.");
+    setSaving(true);
+    const { data, error } = await supabase.rpc("create_sale", { p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null });
+    setSaving(false);
+    if (error) return alert(`Transaksi gagal: ${error.message}`);
+    const result = Array.isArray(data) ? data[0] : data;
+    const receipt = { invoice_number: result?.invoice_number ?? "", created_at: new Date().toISOString(), payment_method: method, subtotal, discount_amount: discount, total, paid_amount: paidValue, change_amount: isReceivable ? 0 : Math.max(0, paidValue - total), customer_name: customer || null, notes, items: cart.map((item) => ({ product_name: item.productName, variant_name: `${item.color} / ${item.size}`, quantity: item.quantity, unit_price: Number(item.price), subtotal: Number(item.price) * item.quantity })) };
+    alert(`Transaksi ${result?.invoice_number ?? ""} berhasil disimpan.`);
+    if (confirm("Cetak struk sekarang?")) printReceipt(receipt);
+    setCart([]); setPaid(""); setCustomer(""); setNotes(""); setDiscountValue(""); setDiscountReason(""); void load();
+  }
+
+  return <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex justify-between gap-3"><div><h2 className="text-xl font-bold">Pilih produk</h2><p className="text-sm text-gray-500">{results.length} produk tersedia</p></div><button onClick={() => setCart([])} className="text-sm font-semibold text-pink-700">Kosongkan</button></div>
+      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari produk, SKU, atau kategori..." className="mt-5 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3" />
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{results.map((product) => <article key={product.id} className="rounded-2xl border border-gray-200 p-4"><b>{product.nama}</b><p className="mt-1 text-xs text-gray-500">{product.kode} · {product.kategori}</p><div className="mt-4 space-y-2">{variants.filter((variant) => variant.product_id === product.id).map((variant) => <button key={variant.id} onClick={() => add(product, variant)} className="flex w-full justify-between rounded-xl bg-gray-50 px-3 py-2 text-left hover:bg-pink-50"><span><b className="block text-sm">{variant.color} / {variant.size}</b><small>Stok {variant.stock}</small></span><b className="text-sm text-pink-700">{rupiah(Number(variant.price))}</b></button>)}</div></article>)}</div>
+    </section>
+    <aside className="h-fit rounded-2xl border border-gray-200 bg-white shadow-sm xl:sticky xl:top-20">
+      <div className="border-b p-5"><h2 className="text-xl font-bold">Keranjang</h2></div>
+      <div className="max-h-72 divide-y overflow-y-auto px-5">{cart.length ? cart.map((item) => <div key={item.id} className="py-4"><div className="flex justify-between"><span><b className="block">{item.productName}</b><small>{item.color} / {item.size}</small></span><b>{rupiah(item.price * item.quantity)}</b></div><div className="mt-2 flex gap-2"><button onClick={() => change(item.id, item.quantity - 1)} className="rounded bg-gray-100 px-2">−</button><span>{item.quantity}</span><button onClick={() => change(item.id, item.quantity + 1)} className="rounded bg-pink-100 px-2">+</button></div></div>) : <p className="py-10 text-center text-sm text-gray-500">Keranjang masih kosong.</p>}</div>
+      <div className="space-y-3 border-t p-5">
+        <div className="grid grid-cols-2 gap-2"><select value={discountType} onChange={(event) => setDiscountType(event.target.value as "NOMINAL" | "PERCENT")} className="rounded-xl border px-2"><option value="NOMINAL">Diskon Rp</option><option value="PERCENT">Diskon %</option></select><input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} type="number" min="0" placeholder="Nilai diskon" className="rounded-xl border px-3 py-2.5" /></div>
+        {Number(discountValue) > 0 && <input value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Kode / alasan promo" className="w-full rounded-xl border px-3 py-2.5" />}
+        <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder={isReceivable ? "Nama pelanggan (wajib)" : "Nama pelanggan (opsional)"} className="w-full rounded-xl border px-3 py-2.5" />
+        <div className="grid grid-cols-2 gap-2">{([['CASH', 'Tunai'], ['QRIS', 'QRIS'], ['TRANSFER', 'Transfer'], ['PIUTANG', 'Bayar nanti']] as const).map(([value, label]) => <button key={value} onClick={() => setMethod(value)} className={`rounded-lg border px-2 py-2 text-sm font-semibold ${method === value ? "border-pink-600 bg-pink-50 text-pink-700" : "border-gray-200"}`}>{label}</button>)}</div>
+        <div className="space-y-2"><div className="flex gap-2"><input value={currencyInput(paid)} onChange={(event) => setPaid(numericInput(event.target.value))} inputMode="numeric" placeholder={isReceivable ? "Uang muka (opsional)" : "Nominal pembayaran"} className="min-w-0 flex-1 rounded-xl border px-3 py-2.5" />{!isReceivable && <button type="button" onClick={() => setPaid(String(Math.round(total)))} disabled={!cart.length} className="shrink-0 rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-200 disabled:opacity-50">Uang Pas</button>}</div><p className="text-xs text-gray-500">{paid ? `Nominal diterima: ${rupiah(Number(paid))}` : "Masukkan nominal pembayaran."}</p></div>
+        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Catatan transaksi" className="min-h-18 w-full rounded-xl border px-3 py-2.5" />
+        <div className="border-t pt-4">{discount > 0 && <><div className="flex justify-between text-sm"><span>Subtotal</span><span>{rupiah(subtotal)}</span></div><div className="flex justify-between text-sm text-emerald-700"><span>Diskon</span><span>-{rupiah(discount)}</span></div></>}<div className="flex justify-between text-lg font-bold"><span>Total</span><span>{rupiah(total)}</span></div>{isReceivable && <div className="flex justify-between text-sm text-amber-700"><span>Sisa piutang</span><span>{rupiah(Math.max(0, total - (Number(paid) || 0)))}</span></div>}{!isReceivable && Number(paid) > total && <div className="flex justify-between text-sm text-emerald-700"><span>Kembalian</span><span>{rupiah(Number(paid) - total)}</span></div>}</div>
+        <button disabled={saving || !cart.length} onClick={() => void checkout()} className="w-full rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white disabled:bg-pink-300">{saving ? "Menyimpan..." : isReceivable ? "Simpan piutang" : "Bayar sekarang"}</button>
+      </div>
+    </aside>
+  </div>;
 }
