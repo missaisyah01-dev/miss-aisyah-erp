@@ -13,6 +13,7 @@ type Method = "CASH" | "QRIS" | "TRANSFER" | "PIUTANG";
 const rupiah = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 const currencyInput = (value: string) => value ? rupiah(Number(value)) : "";
 const numericInput = (value: string) => value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+const localDateTimeInput = (date = new Date()) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
 export default function PosTerminal() {
   const { brand } = useBrand();
@@ -27,6 +28,7 @@ export default function PosTerminal() {
   const [discountType, setDiscountType] = useState<"NOMINAL" | "PERCENT">("NOMINAL");
   const [discountValue, setDiscountValue] = useState("");
   const [discountReason, setDiscountReason] = useState("");
+  const [transactionDate, setTransactionDate] = useState(() => localDateTimeInput());
   const [saving, setSaving] = useState(false);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [cart]);
   const discount = Math.min(subtotal, Math.max(0, discountType === "PERCENT" ? subtotal * (Number(discountValue) || 0) / 100 : Number(discountValue) || 0));
@@ -67,14 +69,14 @@ export default function PosTerminal() {
     if (isReceivable && !customer.trim()) return alert("Nama pelanggan wajib untuk piutang.");
     setSaving(true);
     if (!brand) return;
-    const { data, error } = await supabase.rpc("create_sale", { p_brand_id: brand.id, p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null });
+    const { data, error } = await supabase.rpc("create_sale", { p_brand_id: brand.id, p_items: cart.map((item) => ({ variant_id: item.id, quantity: item.quantity })), p_payment_method: method, p_paid_amount: paidValue, p_notes: notes || null, p_customer_name: customer || null, p_discount_amount: discount, p_discount_reason: discountReason || null, p_created_at: new Date(transactionDate).toISOString() });
     setSaving(false);
     if (error) return alert(`Transaksi gagal: ${error.message}`);
     const result = Array.isArray(data) ? data[0] : data;
-    const receipt = { invoice_number: result?.invoice_number ?? "", created_at: new Date().toISOString(), payment_method: method, subtotal, discount_amount: discount, total, paid_amount: paidValue, change_amount: isReceivable ? 0 : Math.max(0, paidValue - total), customer_name: customer || null, notes, items: cart.map((item) => ({ product_name: item.productName, variant_name: `${item.color} / ${item.size}`, quantity: item.quantity, unit_price: Number(item.price), subtotal: Number(item.price) * item.quantity })) };
+    const receipt = { invoice_number: result?.invoice_number ?? "", created_at: new Date(transactionDate).toISOString(), payment_method: method, subtotal, discount_amount: discount, total, paid_amount: paidValue, change_amount: isReceivable ? 0 : Math.max(0, paidValue - total), customer_name: customer || null, notes, items: cart.map((item) => ({ product_name: item.productName, variant_name: `${item.color} / ${item.size}`, quantity: item.quantity, unit_price: Number(item.price), subtotal: Number(item.price) * item.quantity })) };
     alert(`Transaksi ${result?.invoice_number ?? ""} berhasil disimpan.`);
     if (confirm("Cetak struk sekarang?")) printReceipt(receipt);
-    setCart([]); setPaid(""); setCustomer(""); setNotes(""); setDiscountValue(""); setDiscountReason(""); void load();
+    setCart([]); setPaid(""); setCustomer(""); setNotes(""); setDiscountValue(""); setDiscountReason(""); setTransactionDate(localDateTimeInput()); void load();
   }
 
   return <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
@@ -89,6 +91,7 @@ export default function PosTerminal() {
       <div className="space-y-3 border-t p-5">
         <div className="grid grid-cols-2 gap-2"><select value={discountType} onChange={(event) => setDiscountType(event.target.value as "NOMINAL" | "PERCENT")} className="rounded-xl border px-2"><option value="NOMINAL">Diskon Rp</option><option value="PERCENT">Diskon %</option></select><input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} type="number" min="0" placeholder="Nilai diskon" className="rounded-xl border px-3 py-2.5" /></div>
         {Number(discountValue) > 0 && <input value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Kode / alasan promo" className="w-full rounded-xl border px-3 py-2.5" />}
+        <label className="block text-sm font-medium text-gray-700">Tanggal transaksi<input value={transactionDate} onChange={(event) => setTransactionDate(event.target.value)} type="datetime-local" className="mt-1 w-full rounded-xl border px-3 py-2.5 font-normal" /></label>
         <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder={isReceivable ? "Nama pelanggan (wajib)" : "Nama pelanggan (opsional)"} className="w-full rounded-xl border px-3 py-2.5" />
         <div className="grid grid-cols-2 gap-2">{([['CASH', 'Tunai'], ['QRIS', 'QRIS'], ['TRANSFER', 'Transfer'], ['PIUTANG', 'Bayar nanti']] as const).map(([value, label]) => <button key={value} onClick={() => setMethod(value)} className={`rounded-lg border px-2 py-2 text-sm font-semibold ${method === value ? "border-pink-600 bg-pink-50 text-pink-700" : "border-gray-200"}`}>{label}</button>)}</div>
         <div className="space-y-2"><div className="flex gap-2"><input value={currencyInput(paid)} onChange={(event) => setPaid(numericInput(event.target.value))} inputMode="numeric" placeholder={isReceivable ? "Uang muka (opsional)" : "Nominal pembayaran"} className="min-w-0 flex-1 rounded-xl border px-3 py-2.5" />{!isReceivable && <button type="button" onClick={() => setPaid(String(Math.round(total)))} disabled={!cart.length} className="shrink-0 rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-200 disabled:opacity-50">Uang Pas</button>}</div><p className="text-xs text-gray-500">{paid ? `Nominal diterima: ${rupiah(Number(paid))}` : "Masukkan nominal pembayaran."}</p></div>

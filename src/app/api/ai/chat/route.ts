@@ -20,12 +20,49 @@ function productQuery(message: string) {
   return match?.[1]?.trim() || message.trim();
 }
 
+function resolveDateRange(message: string): { startDate?: string; endDate?: string } {
+  const text = message.toLowerCase();
+  const now = new Date();
+  const TZ_OFFSET_HOURS = 7; // WIB (UTC+7) — sesuaikan jika bisnis berada di zona waktu lain
+
+  const startOfLocalDay = (date: Date) => {
+    const local = new Date(date.getTime() + TZ_OFFSET_HOURS * 60 * 60 * 1000);
+    local.setUTCHours(0, 0, 0, 0);
+    return new Date(local.getTime() - TZ_OFFSET_HOURS * 60 * 60 * 1000);
+  };
+
+  const endOfLocalDay = (date: Date) => {
+    const start = startOfLocalDay(date);
+    return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  };
+
+  if (/hari ini/.test(text)) {
+    return { startDate: startOfLocalDay(now).toISOString(), endDate: endOfLocalDay(now).toISOString() };
+  }
+  if (/kemarin/.test(text)) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return { startDate: startOfLocalDay(yesterday).toISOString(), endDate: endOfLocalDay(yesterday).toISOString() };
+  }
+  if (/minggu ini/.test(text)) {
+    const dayIndex = (now.getUTCDay() + 6) % 7; // Senin = 0
+    const monday = new Date(now.getTime() - dayIndex * 24 * 60 * 60 * 1000);
+    return { startDate: startOfLocalDay(monday).toISOString(), endDate: endOfLocalDay(now).toISOString() };
+  }
+  if (/bulan ini/.test(text)) {
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { startDate: startOfLocalDay(firstOfMonth).toISOString(), endDate: endOfLocalDay(now).toISOString() };
+  }
+
+  return {};
+}
+
 function getToolRequest(message: string): ToolRequest | null {
   const text = message.toLowerCase();
-  if (/(profit|laba|untung)/.test(text)) return { name: "getProfit", params: {} };
+  const dateRange = resolveDateRange(message);
+  if (/(profit|laba|untung)/.test(text)) return { name: "getProfit", params: dateRange };
   if (/(stok (menipis|rendah|habis)|low stock|restock)/.test(text)) return { name: "getLowStock", params: {} };
   if (/(stok|persediaan)/.test(text)) return { name: "getStock", params: { query: productQuery(message) } };
-  if (/(penjualan|omzet|transaksi|terjual)/.test(text)) return { name: "getSales", params: {} };
+  if (/(penjualan|omzet|transaksi|terjual)/.test(text)) return { name: "getSales", params: dateRange };
   if (/(produk|harga|kode)/.test(text)) return { name: "getProduct", params: { query: productQuery(message) } };
   return null;
 }
@@ -85,7 +122,8 @@ export async function POST(request: Request) {
           responseText += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
-      } catch {
+      } catch (error) {
+        console.error("KasirIntelek chat error:", error);
         status = "failed";
         const fallback = "Maaf, KasirIntelek sedang tidak dapat merespons. Silakan coba lagi.";
         responseText = responseText || fallback;
