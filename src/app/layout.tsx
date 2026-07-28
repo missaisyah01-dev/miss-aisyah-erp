@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { BrandProvider } from "@/components/brand/BrandProvider";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { FloatingAIButton } from "@/components/ai/FloatingAIButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><AuthProvider><BrandProvider><AuthGuard>{children}</AuthGuard></BrandProvider></AuthProvider></body>
+      <body className="min-h-full flex flex-col"><AuthProvider><BrandProvider><AuthGuard>{children}<FloatingAIButton /></AuthGuard></BrandProvider></AuthProvider></body>
     </html>
   );
 }
