@@ -1,6 +1,6 @@
-import type { ToolPermission } from "../tools/types";
+import type { Role } from "../tools/types";
 
-export type AIUserRole = ToolPermission;
+export type AIUserRole = Role;
 
 export function normalizeAIUserRole(role: string | null | undefined): AIUserRole {
   if (role === "OWNER") return "OWNER";
@@ -10,8 +10,16 @@ export function normalizeAIUserRole(role: string | null | undefined): AIUserRole
 }
 
 export const roleToolPermissions: Record<AIUserRole, string[]> = {
-  OWNER: [],
-  MANAGER: [],
-  KASIR: [],
-  GUDANG: [],
+  OWNER: ["getSales", "getProfit", "getStock", "getLowStock", "getProduct"],
+  MANAGER: ["getSales", "getProfit", "getStock", "getLowStock", "getProduct"],
+  KASIR: ["getSales", "getProduct"],
+  GUDANG: ["getStock", "getLowStock", "getProduct"],
 };
+
+export function canUseTool(role: AIUserRole, toolName: string) {
+  return roleToolPermissions[role].includes(toolName);
+}
+
+export function getAllowedToolNames(role: AIUserRole) {
+  return roleToolPermissions[role];
+}

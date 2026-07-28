@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useBrand } from "@/components/brand/BrandProvider";
+import { getAllowedToolNames, normalizeAIUserRole } from "@/lib/ai/roles/permissions";
 import { MessageBubble } from "./MessageBubble";
 import { QuickCommands } from "./QuickCommands";
 import { SuggestionButtons } from "./SuggestionButtons";
@@ -10,11 +13,14 @@ import { TypingIndicator } from "./TypingIndicator";
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
 
 export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { profile } = useAuth();
+  const { brand } = useBrand();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string>();
   const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const role = normalizeAIUserRole(profile?.role);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, streaming]);
 
@@ -30,7 +36,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ message: trimmed, conversationId }),
+        body: JSON.stringify({ message: trimmed, conversationId, brandId: brand?.id }),
       });
       if (!response.ok || !response.body) throw new Error((await response.json() as { error?: string }).error ?? "Gagal menghubungi KasirIntelek.");
       setConversationId(response.headers.get("X-Conversation-Id") ?? conversationId);
@@ -60,7 +66,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
         {streaming && (messages.at(-1)?.role !== "assistant" || !messages.at(-1)?.content) && <TypingIndicator />}
         {messages.at(-1)?.role === "assistant" && !streaming && <SuggestionButtons onSelect={(suggestion) => void sendMessage(suggestion)} />}
       </div>
-      <QuickCommands onSelect={(command) => void sendMessage(command)} />
+      <QuickCommands allowedTools={getAllowedToolNames(role)} onSelect={(command) => void sendMessage(command)} />
       <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} className="flex gap-2 border-t border-slate-200 p-3 dark:border-slate-700"><input value={input} onChange={(event) => setInput(event.target.value)} disabled={streaming} placeholder="Tulis pesan..." className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" /><button disabled={streaming || !input.trim()} className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">Kirim</button></form>
     </aside>
   );

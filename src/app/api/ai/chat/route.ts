@@ -1,8 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { getAIAdapter } from "@/lib/ai/adapters";
 import { getRecentMessages } from "@/lib/ai/memory/shortTermMemory";
-import { normalizeAIUserRole } from "@/lib/ai/roles/permissions";
+import { canUseTool, normalizeAIUserRole } from "@/lib/ai/roles/permissions";
 import { buildSystemPrompt } from "@/lib/ai/systemPrompt";
+import { runTool, toolRegistry } from "@/lib/ai/tools";
+
+type ToolRequest = { name: string; params: Record<string, unknown> };
 
 export const runtime = "nodejs";
 
@@ -10,6 +13,21 @@ function createAuthenticatedClient(authorization: string) {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: authorization } },
   });
+}
+
+function productQuery(message: string) {
+  const match = message.match(/(?:produk|stok)\s+(.+?)(?:\s+(?:sekarang|saat ini|yang|di bawah).*)?$/i);
+  return match?.[1]?.trim() || message.trim();
+}
+
+function getToolRequest(message: string): ToolRequest | null {
+  const text = message.toLowerCase();
+  if (/(profit|laba|untung)/.test(text)) return { name: "getProfit", params: {} };
+  if (/(stok (menipis|rendah|habis)|low stock|restock)/.test(text)) return { name: "getLowStock", params: {} };
+  if (/(stok|persediaan)/.test(text)) return { name: "getStock", params: { query: productQuery(message) } };
+  if (/(penjualan|omzet|transaksi|terjual)/.test(text)) return { name: "getSales", params: {} };
+  if (/(produk|harga|kode)/.test(text)) return { name: "getProduct", params: { query: productQuery(message) } };
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -20,7 +38,7 @@ export async function POST(request: Request) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json() as { message?: unknown; conversationId?: unknown };
+  const body = await request.json() as { message?: unknown; conversationId?: unknown; brandId?: unknown };
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return Response.json({ error: "Pesan tidak boleh kosong." }, { status: 400 });
 
@@ -40,6 +58,18 @@ export async function POST(request: Request) {
   ]);
   const role = normalizeAIUserRole((profile as { role?: string } | null)?.role);
   const adapter = getAIAdapter();
+  const brandId = typeof body.brandId === "string" ? body.brandId : "";
+  const requestedTool = getToolRequest(message);
+  const toolMessages: { role: "tool"; content: string }[] = [];
+
+  if (requestedTool) {
+    const result = await runTool(requestedTool.name, requestedTool.params, { userId: user.id, role, brandId, supabase });
+    const toolContent = JSON.stringify({ tool: requestedTool.name, result });
+    await supabase.from("ai_messages").insert({ conversation_id: conversationId, role: "tool", content: toolContent, tool_name: requestedTool.name });
+    toolMessages.push({ role: "tool", content: toolContent });
+  }
+
+  const availableTools = toolRegistry.list().filter((tool) => canUseTool(role, tool.name));
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -48,8 +78,9 @@ export async function POST(request: Request) {
       let status = "completed";
       try {
         for await (const chunk of adapter.streamChat([
-          { role: "system", content: buildSystemPrompt(role) },
+          { role: "system", content: buildSystemPrompt(role, availableTools) },
           ...recentMessages,
+          ...toolMessages,
         ], { signal: request.signal })) {
           responseText += chunk;
           controller.enqueue(encoder.encode(chunk));
