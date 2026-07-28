@@ -93,7 +93,7 @@ begin
  return query select tx,inv,tot,ch;
 end $$;
 
-create or replace function public.get_top_selling_products(p_brand_id uuid, p_start timestamptz default null, p_limit integer default 5) returns table(product_id bigint,product_name text,total_quantity bigint,total_revenue numeric) language sql stable security invoker set search_path=public as $$ select i.product_id,max(i.product_name)::text,sum(i.quantity)::bigint,sum(i.subtotal)::numeric from public.transaction_items i join public.transactions t on t.id=i.transaction_id where t.brand_id=p_brand_id and (p_start is null or t.created_at>=p_start) group by i.product_id order by total_quantity desc,total_revenue desc limit greatest(1,least(coalesce(p_limit,5),20)) $$;
+create or replace function public.get_top_selling_products(p_brand_id uuid, p_start timestamptz default null, p_limit integer default 5) returns table(product_id bigint,product_name text,total_quantity bigint,total_revenue numeric) language sql stable security invoker set search_path=public as $$ select i.product_id, max(i.product_name)::text as product_name, sum(i.quantity)::bigint as total_quantity, sum(i.subtotal)::numeric as total_revenue from public.transaction_items i join public.transactions t on t.id=i.transaction_id where t.brand_id=p_brand_id and (p_start is null or t.created_at>=p_start) group by i.product_id order by total_quantity desc, total_revenue desc limit greatest(1,least(coalesce(p_limit,5),20)) $$;
 
 revoke all on function public.create_sale(jsonb,text,numeric,text,text,numeric,text) from authenticated;
 grant execute on function public.create_sale(uuid,jsonb,text,numeric,text,text,numeric,text) to authenticated;

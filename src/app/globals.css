@@ -63,7 +63,7 @@ section:has(input[placeholder="Cari invoice, pembeli, atau produk..."]) > div:nt
   left: 7px;
   width: 19px;
   height: 12px;
-  border: 2px solid #db2777;
+  border: 2px solid var(--brand-primary, #db2777);
   border-top: 0;
   transform: skewX(-10deg);
 }
@@ -74,7 +74,7 @@ section:has(input[placeholder="Cari invoice, pembeli, atau produk..."]) > div:nt
   left: -8px;
   width: 10px;
   height: 2px;
-  background: #db2777;
+  background: var(--brand-primary, #db2777);
   content: "";
 }
 

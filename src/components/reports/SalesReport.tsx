@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import * as XLSX from "xlsx-js-style";
 import { supabase } from "@/lib/supabase";
+import { useBrand } from "@/components/brand/BrandProvider";
 
 type Transaction = { id: number; total: number; paid_amount: number; payment_status: "LUNAS" | "BELUM_LUNAS" | "RETUR"; customer_name: string | null; payment_method: "CASH" | "QRIS" | "TRANSFER" | "PIUTANG"; created_at: string };
 type Receivable = Pick<Transaction, "id" | "total" | "paid_amount" | "customer_name" | "created_at"> & { invoice_number: string };
@@ -17,6 +18,7 @@ const shortDate = (date: string) => new Intl.DateTimeFormat("id-ID", { day: "num
 const startOfPeriod = (period: Period) => { if (period === "SEMUA") return null; const date = new Date(); date.setHours(0, 0, 0, 0); if (period === "MINGGU_INI") date.setDate(date.getDate() - 6); if (period === "BULAN_INI") date.setDate(1); return date.toISOString(); };
 
 export default function SalesReport() {
+  const { brand } = useBrand();
   const [period, setPeriod] = useState<Period>("MINGGU_INI");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
@@ -114,7 +116,8 @@ export default function SalesReport() {
     sheet["!rows"] = [{ hpt: 22 }, { hpt: 24 }, { hpt: 20 }, { hpt: 20 }, { hpt: 22 }];
     sheet["!autofilter"] = { ref: `A5:O${Math.max(6, rows.length + 5)}` };
     XLSX.utils.book_append_sheet(workbook, sheet, "Laporan Harian");
-    XLSX.writeFile(workbook, `laporan-penjualan-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const brandSlug = (brand?.slug || brand?.name || "brand").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    XLSX.writeFile(workbook, `laporan-penjualan-${brandSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   return <section className="space-y-6">
