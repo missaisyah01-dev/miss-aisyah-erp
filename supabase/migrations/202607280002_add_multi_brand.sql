@@ -98,3 +98,50 @@ create or replace function public.get_top_selling_products(p_brand_id uuid, p_st
 revoke all on function public.create_sale(jsonb,text,numeric,text,text,numeric,text) from authenticated;
 grant execute on function public.create_sale(uuid,jsonb,text,numeric,text,text,numeric,text) to authenticated;
 grant execute on function public.get_top_selling_products(uuid,timestamptz,integer) to authenticated;
+
+-- Brand-scoped wrappers keep existing atomic implementations while rejecting IDs
+-- that belong to a different brand. Legacy signatures are explicitly revoked.
+create or replace function public.adjust_variant_stock(p_brand_id uuid, p_variant_id bigint, p_type text, p_quantity integer, p_notes text default null)
+returns table (variant_id bigint, stock integer) language plpgsql security definer set search_path=public as $$ begin
+  perform public.assert_brand_access(p_brand_id); if not exists(select 1 from public.product_variants where id=p_variant_id and brand_id=p_brand_id) then raise exception 'Varian tidak ditemukan untuk brand aktif'; end if;
+  return query select * from public.adjust_variant_stock(p_variant_id,p_type,p_quantity,p_notes);
+end $$;
+create or replace function public.set_product_total_stock(p_brand_id uuid, p_product_id bigint, p_stock integer)
+returns table (product_id bigint, stock integer) language plpgsql security definer set search_path=public as $$ begin
+  perform public.assert_brand_access(p_brand_id); if not exists(select 1 from public.products where id=p_product_id and brand_id=p_brand_id) then raise exception 'Produk tidak ditemukan untuk brand aktif'; end if;
+  return query select * from public.set_product_total_stock(p_product_id,p_stock);
+end $$;
+create or replace function public.record_stock_opname(p_brand_id uuid, p_items jsonb, p_notes text default null)
+returns integer language plpgsql security definer set search_path=public as $$ declare v_variant_id bigint; begin
+  perform public.assert_brand_access(p_brand_id); for v_variant_id in select (value->>'variant_id')::bigint from jsonb_array_elements(p_items) loop if not exists(select 1 from public.product_variants where product_variants.id=v_variant_id and brand_id=p_brand_id) then raise exception 'Varian bukan milik brand aktif'; end if; end loop;
+  return public.record_stock_opname(p_items,p_notes);
+end $$;
+create or replace function public.complete_receivable(p_brand_id uuid, p_transaction_id bigint, p_amount numeric, p_payment_method text, p_notes text default null)
+returns table (paid_amount numeric, remaining_amount numeric, payment_status text) language plpgsql security definer set search_path=public as $$ begin
+  perform public.assert_brand_access(p_brand_id); if not exists(select 1 from public.transactions where id=p_transaction_id and brand_id=p_brand_id) then raise exception 'Transaksi bukan milik brand aktif'; end if;
+  return query select * from public.complete_receivable(p_transaction_id,p_amount,p_payment_method,p_notes);
+end $$;
+create or replace function public.update_receipt(p_brand_id uuid, p_transaction_id bigint, p_customer_name text, p_notes text)
+returns void language plpgsql security definer set search_path=public as $$ begin
+  perform public.assert_brand_access(p_brand_id); if not exists(select 1 from public.transactions where id=p_transaction_id and brand_id=p_brand_id) then raise exception 'Transaksi bukan milik brand aktif'; end if;
+  perform public.update_receipt(p_transaction_id,p_customer_name,p_notes);
+end $$;
+create or replace function public.return_transaction_item(p_brand_id uuid, p_transaction_item_id bigint, p_quantity integer, p_refund_method text, p_reason text default null)
+returns table (return_id bigint, refund_amount numeric, remaining_quantity integer) language plpgsql security definer set search_path=public as $$ begin
+  perform public.assert_brand_access(p_brand_id); if not exists(select 1 from public.transaction_items where id=p_transaction_item_id and brand_id=p_brand_id) then raise exception 'Item transaksi bukan milik brand aktif'; end if;
+  return query select * from public.return_transaction_item(p_transaction_item_id,p_quantity,p_refund_method,p_reason);
+end $$;
+create or replace function public.import_stock_movements(p_brand_id uuid, p_items jsonb)
+returns integer language plpgsql security definer set search_path=public as $$ declare item jsonb; v public.product_variants%rowtype; kind text; qty integer; n integer:=0; begin
+  perform public.assert_brand_access(p_brand_id); if coalesce(public.current_user_role(),'') not in ('OWNER','ADMIN') then raise exception 'Anda tidak memiliki akses'; end if;
+  for item in select value from jsonb_array_elements(p_items) loop kind:=upper(trim(coalesce(item->>'tipe',''))); qty:=nullif(trim(coalesce(item->>'jumlah','')),'')::integer; if kind not in ('MASUK','KELUAR','RETUR') or qty is null or qty<=0 then raise exception 'Data impor tidak valid'; end if; select * into v from public.product_variants where sku=trim(item->>'sku') and brand_id=p_brand_id for update; if not found then raise exception 'SKU tidak ditemukan untuk brand aktif'; end if; if kind='KELUAR' and v.stock<qty then raise exception 'Stok SKU % tidak mencukupi',v.sku; end if; update public.product_variants set stock=stock+case when kind='KELUAR' then -qty else qty end where id=v.id; insert into public.stock_movements(brand_id,product_id,product_variant_id,tipe,jumlah,keterangan) values(p_brand_id,v.product_id,v.id,kind,qty,nullif(trim(item->>'keterangan'),'')); n:=n+1; end loop; return n;
+end $$;
+revoke all on function public.adjust_variant_stock(bigint,text,integer,text) from authenticated;
+revoke all on function public.set_product_total_stock(bigint,integer) from authenticated;
+revoke all on function public.record_stock_opname(jsonb,text) from authenticated;
+revoke all on function public.complete_receivable(bigint,numeric,text,text) from authenticated;
+revoke all on function public.update_receipt(bigint,text,text) from authenticated;
+revoke all on function public.return_transaction_item(bigint,integer,text,text) from authenticated;
+revoke all on function public.import_stock_movements(jsonb) from authenticated;
+grant execute on function public.adjust_variant_stock(uuid,bigint,text,integer,text), public.set_product_total_stock(uuid,bigint,integer), public.record_stock_opname(uuid,jsonb,text), public.complete_receivable(uuid,bigint,numeric,text,text), public.update_receipt(uuid,bigint,text,text), public.return_transaction_item(uuid,bigint,integer,text,text) to authenticated;
+grant execute on function public.import_stock_movements(uuid,jsonb) to authenticated;

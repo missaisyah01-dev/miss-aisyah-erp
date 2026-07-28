@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useBrand } from "@/components/brand/BrandProvider";
 
 type Row = { id: number; sku: string; color: string; size: string; stock: number; products: { nama: string } | { nama: string }[] | null };
 const first = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
 
 export default function StockOpnamePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { brand } = useBrand();
   const [rows, setRows] = useState<Row[]>([]);
   const [physical, setPhysical] = useState<Record<number, string>>({});
   const [search, setSearch] = useState("");
@@ -16,7 +18,7 @@ export default function StockOpnamePanel({ onClose, onSuccess }: { onClose: () =
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase.from("product_variants").select("id,sku,color,size,stock,products(nama)").order("product_id").order("color").order("size");
+    const { data, error } = await supabase.from("product_variants").select("id,sku,color,size,stock,products(nama)").eq("brand_id", brand?.id ?? "").order("product_id").order("color").order("size");
     if (error) alert(`Gagal memuat stok: ${error.message}`); else {
       const next = (data ?? []) as unknown as Row[];
       setRows(next);
@@ -25,8 +27,8 @@ export default function StockOpnamePanel({ onClose, onSuccess }: { onClose: () =
     setLoading(false);
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void load(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { if (brand) void load(); }, [brand?.id]);
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase("id-ID");
@@ -42,7 +44,7 @@ export default function StockOpnamePanel({ onClose, onSuccess }: { onClose: () =
     if (!changed.length) return alert("Belum ada selisih stok yang perlu diterapkan.");
     if (!confirm(`Terapkan ${changed.length} penyesuaian stok hasil opname?`)) return;
     setSaving(true);
-    const { data, error } = await supabase.rpc("record_stock_opname", { p_items: changed, p_notes: notes || null });
+    const { data, error } = await supabase.rpc("record_stock_opname", { p_brand_id: brand?.id, p_items: changed, p_notes: notes || null });
     setSaving(false);
     if (error) return alert(`Gagal menyimpan stok opname: ${error.message}`);
     alert(`${data ?? changed.length} stok varian berhasil disesuaikan.`);

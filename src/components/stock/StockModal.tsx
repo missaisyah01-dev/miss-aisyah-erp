@@ -2,22 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useBrand } from "@/components/brand/BrandProvider";
 
 type Product = { id: number; nama: string };
 type Variant = { id: number; sku: string; color: string; size: string; stock: number };
 
 export default function StockModal({ onClose }: { onClose: () => void }) {
+  const { brand } = useBrand();
   const [products, setProducts] = useState<Product[]>([]); const [variants, setVariants] = useState<Variant[]>([]);
   const [productId, setProductId] = useState(""); const [variantId, setVariantId] = useState(""); const [type, setType] = useState("MASUK"); const [quantity, setQuantity] = useState(""); const [notes, setNotes] = useState(""); const [saving, setSaving] = useState(false);
-  async function loadProducts() { const { data, error } = await supabase.from("products").select("id, nama").order("nama"); if (error) alert(error.message); else setProducts((data ?? []) as Product[]); }
-  async function loadVariants(id: string) { setVariants([]); setVariantId(""); if (!id) return; const { data, error } = await supabase.from("product_variants").select("id, sku, color, size, stock").eq("product_id", id).order("color"); if (error) alert(error.message); else setVariants((data ?? []) as Variant[]); }
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadProducts(); }, []);
+  async function loadProducts() { const { data, error } = await supabase.from("products").select("id, nama").eq("brand_id", brand?.id ?? "").order("nama"); if (error) alert(error.message); else setProducts((data ?? []) as Product[]); }
+  async function loadVariants(id: string) { setVariants([]); setVariantId(""); if (!id) return; const { data, error } = await supabase.from("product_variants").select("id, sku, color, size, stock").eq("brand_id", brand?.id ?? "").eq("product_id", id).order("color"); if (error) alert(error.message); else setVariants((data ?? []) as Variant[]); }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { if (brand) void loadProducts(); }, [brand?.id]);
   async function save() {
     if (!productId || !variantId || !quantity || Number(quantity) <= 0) return alert("Produk, varian, dan jumlah wajib diisi.");
     if (!variants.some((variant) => variant.id === Number(variantId))) return;
     setSaving(true);
-    const { error } = await supabase.rpc("adjust_variant_stock", { p_variant_id: Number(variantId), p_type: type, p_quantity: Number(quantity), p_notes: notes || null });
+    const { error } = await supabase.rpc("adjust_variant_stock", { p_brand_id: brand?.id, p_variant_id: Number(variantId), p_type: type, p_quantity: Number(quantity), p_notes: notes || null });
     setSaving(false);
     if (error) return alert(error.message);
     alert("Stok varian berhasil diperbarui."); onClose(); window.location.reload();
