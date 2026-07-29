@@ -16,8 +16,15 @@ function createAuthenticatedClient(authorization: string) {
 }
 
 function productQuery(message: string) {
+  const text = message.toLowerCase();
+  const isGenericListRequest = /(apa saja|semua produk|daftar produk|list produk|ada produk|produk apa)/.test(text);
+  if (isGenericListRequest) return "";
+
   const match = message.match(/(?:produk|stok)\s+(.+?)(?:\s+(?:sekarang|saat ini|yang|di bawah).*)?$/i);
-  return match?.[1]?.trim() || message.trim();
+  const extracted = match?.[1]?.trim() || "";
+  // Hindari meneruskan kata tanya/filler sebagai nama produk
+  if (!extracted || /^(apa|apa saja|saja|ada|dong|ya)\??$/i.test(extracted)) return "";
+  return extracted;
 }
 
 function resolveDateRange(message: string): { startDate?: string; endDate?: string } {
