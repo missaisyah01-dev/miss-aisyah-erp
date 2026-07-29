@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const brandScopedTables = new Set(["products", "categories", "product_variants", "stock_movements", "transactions", "transaction_items", "transaction_payments", "transaction_returns"]);
+const brandScopedTables = new Set(["products", "categories", "product_variants", "product_custom_prices", "stock_movements", "transactions", "transaction_items", "transaction_payments", "transaction_returns"]);
 
 // A final client-side guard: every REST request for tenant data includes the
 // selected brand, including future feature queries that use this shared client.
